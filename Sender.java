@@ -1,0 +1,59 @@
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class Sender {
+    private Socket socket;
+    private BufferedReader fileReader;
+    private List<Frame> sentFrames = new ArrayList<>();
+    private final int windowSize = 4;  // Example window size
+    private Timer timer;
+
+    public void connect(String host, int port) throws IOException {
+        socket = new Socket(host, port);
+        System.out.println("Connected to receiver at " + host + ":" + port);
+    }
+
+    public void sendFrames(String fileName) throws IOException {
+        fileReader = new BufferedReader(new FileReader(fileName));
+        String line;
+        int frameNum = 0;
+        while ((line = fileReader.readLine()) != null) {
+            String data = line;
+            String crc = CRC.calculateCRC(data);  // Calculer le CRC
+            Frame frame = new Frame('I', frameNum, data, crc);
+            sendFrame(frame);
+            frameNum = (frameNum + 1) % 8;  // Frame number on 3 bits (0-7)
+        }
+        sendFrame(new Frame('F', 0, null, ""));  // End of transmission frame
+    }
+
+    private void sendFrame(Frame frame) throws IOException {
+        OutputStream out = socket.getOutputStream();
+        out.write(frame.toByteString().getBytes());
+        out.flush();
+        sentFrames.add(frame);
+        System.out.println("Sent: " + frame.toByteString());
+        startTimer();
+    }
+
+    private void startTimer() {
+        timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                System.out.println("Timeout! Resending frames...");
+                // Logic to resend frames
+            }
+        }, 3000);  // 3-second timer
+    }
+
+    public void stopTimer() {
+        if (timer != null) {
+            timer.cancel();
+        }
+    }
+
+    // Logic to handle ACKs, resend frames, etc.
+}
+
