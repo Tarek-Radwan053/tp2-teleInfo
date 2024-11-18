@@ -1,6 +1,8 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.net.Socket;
+
 
 public class Sender {
     private Socket socket;
@@ -10,6 +12,7 @@ public class Sender {
     private Timer timer;
 
     public void connect(String host, int port) throws IOException {
+
         socket = new Socket(host, port);
         System.out.println("Connected to receiver at " + host + ":" + port);
     }
@@ -20,7 +23,7 @@ public class Sender {
         int frameNum = 0;
         while ((line = fileReader.readLine()) != null) {
             String data = line;
-            String crc = CRC.calculateCRC(data);  // Calculer le CRC
+            String crc = CRC.calculateCRC(data);  // Calculate CRC
             Frame frame = new Frame('I', frameNum, data, crc);
             sendFrame(frame);
             frameNum = (frameNum + 1) % 8;  // Frame number on 3 bits (0-7)
@@ -55,5 +58,24 @@ public class Sender {
     }
 
     // Logic to handle ACKs, resend frames, etc.
-}
 
+    public static void main(String[] args) {
+        if (args.length != 4) {
+            System.out.println("Usage: java Sender <Host> <Port> <Filename> <GoBackN>");
+            return;
+        }
+
+        String host = args[0];
+        int port = Integer.parseInt(args[1]);
+        String fileName = args[2];
+        int goBackN = Integer.parseInt(args[3]);
+
+        try {
+            Sender sender = new Sender();
+            sender.connect(host, port);
+            sender.sendFrames(fileName);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}

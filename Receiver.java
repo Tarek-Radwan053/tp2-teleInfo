@@ -1,9 +1,23 @@
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Receiver {
+
     private ServerSocket serverSocket;
     private List<Frame> receivedFrames = new ArrayList<>();
+
+    public static void main(String[] args) throws IOException {
+        // Start the receiver by accepting port from command-line args
+        if (args.length != 1) {
+            System.out.println("Usage: java Receiver <port>");
+            System.exit(1);
+        }
+        int port = Integer.parseInt(args[0]);  // Port number passed as command-line argument
+        Receiver receiver = new Receiver();
+        receiver.start(port);
+    }
 
     public void start(int port) throws IOException {
         serverSocket = new ServerSocket(port);
@@ -36,19 +50,19 @@ public class Receiver {
         return CRC.validateCRC(frame.getData(), frame.getCrc());
     }
 
-    private void sendAck(Socket clientSocket, int num) throws IOException {
+    private void sendAck(Socket clientSocket, int frameNum) throws IOException {
+        Frame ackFrame = new Frame('A', frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
-        Frame ackFrame = new Frame('A', num, null, "");
         out.write(ackFrame.toByteString().getBytes());
         out.flush();
-        System.out.println("Sent ACK for frame " + num);
+        System.out.println("Sent ACK for frame " + frameNum);
     }
 
-    private void sendRejection(Socket clientSocket, int num) throws IOException {
+    private void sendRejection(Socket clientSocket, int frameNum) throws IOException {
+        Frame rejFrame = new Frame('R', frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
-        Frame rejFrame = new Frame('R', num, null, "");
         out.write(rejFrame.toByteString().getBytes());
         out.flush();
-        System.out.println("Sent REJ for frame " + num);
+        System.out.println("Sent REJ for frame " + frameNum);
     }
 }
