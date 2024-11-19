@@ -27,19 +27,20 @@ public class BitStuffing {
 
         for (int i = 0; i < stuffedData.length(); i++) {
             char bit = stuffedData.charAt(i);
-            originalData.append(bit);
+            originalData.append(bit);  // Add the current bit to the original data
 
             if (bit == '1') {
                 consecutiveOnes++;
                 if (consecutiveOnes == 5) {
-                    // Check the next bit and skip '0' if bit stuffing is detected
+                    // If five consecutive ones are detected, check the next bit
                     if (i + 1 < stuffedData.length() && stuffedData.charAt(i + 1) == '0') {
-                        i++;  // Skip the '0'
+                        // Skip the next '0' (bit stuffing)
+                        i++;  // Increment i to skip the stuffed '0'
                     }
-                    consecutiveOnes = 0;
+                    consecutiveOnes = 0;  // Reset the counter after skipping the '0'
                 }
             } else {
-                consecutiveOnes = 0;  // Reset if the bit is '0'
+                consecutiveOnes = 0;  // Reset the counter if the bit is '0'
             }
         }
 

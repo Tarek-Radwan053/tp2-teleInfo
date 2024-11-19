@@ -24,8 +24,11 @@ public class CRC {
     }
 
     // Validate the CRC
+    //not sure if this is correct maybe the comparaisan shoud be between the calculated crc from unstufed data and the  crc unstefed?
     public static boolean validateCRC(String input, String crc) {
-        return Objects.equals(calculateCRC(input), crc);
+        String b=calculateCRC(input);
+        boolean a= Objects.equals(b, crc);
+        return a;
     }
 
     // Calculate CRC for the entire frame (type, num, and data)

@@ -33,11 +33,12 @@ public class Sender {
 
     private void sendFrame(Frame frame) throws IOException {
         OutputStream out = socket.getOutputStream();
-        out.write(frame.toByteString().getBytes());
-        out.flush();
+        String outputFrame=frame.toByteString();
+        out.write( outputFrame.getBytes());
+        /*out.flush();*/
         sentFrames.add(frame);
-        System.out.println("Sent: " + frame.toByteString());
-        startTimer();
+        System.out.println("Sent: " + outputFrame);
+        /*startTimer();*/
     }
 
     private void startTimer() {
