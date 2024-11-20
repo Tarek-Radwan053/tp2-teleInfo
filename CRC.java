@@ -33,7 +33,7 @@ public class CRC {
 
     // Calculate CRC for the entire frame (type, num, and data)
     public static String calculateFrameCRC(Frame frame) {
-        String combinedData = String.valueOf(frame.getType()) + (char) frame.getNum() + frame.getData();
+        String combinedData = frame.getType() + frame.getNum() + frame.getData();
         return calculateCRC(combinedData);
     }
 }

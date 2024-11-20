@@ -39,7 +39,7 @@ public class Receiver {
                     nbrFrames=countFlags( line,"01111110");
                     nbrFrames=nbrFrames/2;
                     for (int frameNbr=1;frameNbr<nbrFrames+1;frameNbr++) {
-                        Frame frame = identifyFRame(line, frameNbr);
+                        Frame frame = identifyFrame(line, frameNbr);
                         if (checkErrors(frame)) {
                             sendAck(clientSocket, frame.getNum());
                         } else {
@@ -62,7 +62,7 @@ public class Receiver {
 
         return count;
     }
-    public Frame identifyFRame(String line, int frameNbr) {
+    public Frame identifyFrame(String line, int frameNbr) {
         String FLAG = "01111110";  // The flag that marks the start and end of each frame
 
         // Calculate the start and end positions of the frame
@@ -78,32 +78,40 @@ public class Receiver {
         // Extract the frame content (data and CRC part) between the flags
         String frameContent = line.substring(indexFlag + FLAG.length(), indexFlag2);
 
-        // We assume the frame structure to be:
-        // type: 1 char
-        // num: 1 char (or int)
-        // data: variable length string
-        // crc: last 4 chars as CRC
+        // Step 1: Remove bit stuffing from the frame content
+        String unstuffedContent = BitStuffing.removeBitStuffing(frameContent);
 
-        if (frameContent.length() < 12) {
-            System.out.println("Error: Frame content too small.");
-            return null;  // If frame content is too small, it's invalid
+        // Step 2: Ensure the unstuffed content is valid for processing
+        if (unstuffedContent.length() < 16) { // At least 1 char for type, 1 for num, and 4 for CRC
+            System.out.println("Error: Frame content too small after unstuffing.");
+            return null;
         }
 
-        // Extract type, num, data, and crc from the frame content
-        char type = frameContent.charAt(0);  // First byte: type
-        int num = frameContent.charAt(1);    // Second byte: num
-        String data = frameContent.substring(2, frameContent.length() - 4);  // Data section
+        // Step 3: Decode type (1 character = 8 bits)
+        String typeBinary = unstuffedContent.substring(0, 8);
+        String type = String.valueOf((char) Integer.parseInt(typeBinary, 2));
+
+        // Step 4: Decode num (1 character = 8 bits)
+        String numBinary = unstuffedContent.substring(8, 16);
+        int num = Integer.parseInt(numBinary, 2);
+
+        // Step 5: Extract data (all bits before the last 16 for CRC)
+        String dataBinary = unstuffedContent.substring(16, unstuffedContent.length() - 32);
+        StringBuilder data = new StringBuilder();
+        for (int i = 0; i < dataBinary.length(); i += 8) {
+            String byteSegment = dataBinary.substring(i, Math.min(i + 8, dataBinary.length()));
+            data.append((char) Integer.parseInt(byteSegment, 2));
+        }
+
+        String crcBinary = unstuffedContent.substring(unstuffedContent.length() - 32);//transform this into hex code
 
 
 
-        // not sure if i shoud unstef this or the data it self?
-        //
-
-        String crc=frameContent.substring(frameContent.length() - 4);
-
-        // Return the frame object
-        return new Frame(type, num, data, crc);
+        // Return the reconstructed Frame object
+        return new Frame(type, num, data.toString(), crcBinary);//change into crc later on
     }
+
+
 
 
 
@@ -113,7 +121,7 @@ public class Receiver {
     }
 
     private void sendAck(Socket clientSocket, int frameNum) throws IOException {
-        Frame ackFrame = new Frame('A', frameNum, null, "");
+        Frame ackFrame = new Frame("A", frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
         out.write(ackFrame.toByteString().getBytes());
         out.flush();
@@ -121,7 +129,7 @@ public class Receiver {
     }
 
     private void sendRejection(Socket clientSocket, int frameNum) throws IOException {
-        Frame rejFrame = new Frame('R', frameNum, null, "");
+        Frame rejFrame = new Frame("R", frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
         out.write(rejFrame.toByteString().getBytes());
         out.flush();

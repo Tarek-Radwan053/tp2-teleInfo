@@ -1,11 +1,13 @@
+import java.util.Arrays;
+
 public class Frame {
     private static final String FLAG = "01111110"; // Flag to mark the beginning and end of a frame
-    private char type;  // Frame type ('I' for information, 'A' for ACK, etc.)
+    private String type;  // Frame type ('I' for information, 'A' for ACK, etc.)
     private int num;    // Frame number (sequence number)
     private String data;  // Data carried in the frame
     private String crc;   // CRC checksum for the frame
 
-    public Frame(char type, int num, String data, String crc) {
+    public Frame(String type, int num, String data, String crc) {
         this.type = type;
         this.num = num;
         this.data = data;
@@ -13,29 +15,30 @@ public class Frame {
     }
 
     // Convert the frame to a byte string representation
+    //not sure if i should add bit stuffing individually or all together
     public String toByteString() {
         StringBuilder sb = new StringBuilder();
-        sb.append(FLAG);
-        sb.append(type);
-        sb.append( num);
 
-        // Apply bit stuffing to the data if it's not null
-        String stuffedData = (data != null) ? BitStuffing.applyBitStuffing(data) : "";
-        sb.append(stuffedData);
-        //should i convert it to binary and stuff then?
+        sb.append(type);
+        sb.append(num);
+
+        // Apply bit stuffing to the data if it's not null binary
+        sb.append(data);
+
 
         // CRC should be calculated on stuffed data
+        String all=BitStuffing.stringToBinary(String.valueOf(sb));
         String crc = CRC.calculateFrameCRC(this);
         sb.append(crc);
-        //not sure but probably corrrect
 
-        sb.append(FLAG);  // Frame ends with the flag
-        return sb.toString();
+
+        all=BitStuffing.applyBitStuffing(all);
+        return (FLAG+all+FLAG);
     }
 
 
     // Getters
-    public char getType() { return type; }
+    public String getType() { return type; }
     public int getNum() { return num; }
     public String getData() { return data; }
     public String getCrc() { return crc; }

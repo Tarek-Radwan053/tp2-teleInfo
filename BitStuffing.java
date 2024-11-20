@@ -4,6 +4,7 @@ public class BitStuffing {
         StringBuilder stuffedData = new StringBuilder();
         int consecutiveOnes = 0;
 
+
         for (char bit : data.toCharArray()) {
             stuffedData.append(bit);
             if (bit == '1') {
@@ -25,6 +26,7 @@ public class BitStuffing {
         StringBuilder originalData = new StringBuilder();
         int consecutiveOnes = 0;
 
+
         for (int i = 0; i < stuffedData.length(); i++) {
             char bit = stuffedData.charAt(i);
             originalData.append(bit);  // Add the current bit to the original data
@@ -43,7 +45,19 @@ public class BitStuffing {
                 consecutiveOnes = 0;  // Reset the counter if the bit is '0'
             }
         }
-
         return originalData.toString();
+    }
+    // Method to convert a string to binary representation
+    public static String stringToBinary(String input) {
+        StringBuilder binaryRepresentation = new StringBuilder();
+        byte[] byteArray = input.getBytes();  // Convert string to byte array
+
+        for (byte b : byteArray) {
+            // Convert each byte to a binary string (8 bits) and pad with leading zeros if necessary
+            String binaryString = String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0');
+            binaryRepresentation.append(binaryString);  // Append to the final binary string
+        }
+
+        return binaryRepresentation.toString();
     }
 }

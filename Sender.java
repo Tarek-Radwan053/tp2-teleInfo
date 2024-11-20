@@ -23,18 +23,17 @@ public class Sender {
         int frameNum = 0;
         while ((line = fileReader.readLine()) != null) {
             String data = line;
-            String crc = CRC.calculateCRC(data);  // Calculate CRC
-            Frame frame = new Frame('I', frameNum, data, crc);
+            Frame frame = new Frame("I", frameNum, data, "");
             sendFrame(frame);
             frameNum = (frameNum + 1) % 8;  // Frame number on 3 bits (0-7)
         }
-        sendFrame(new Frame('F', 0, null, ""));  // End of transmission frame
+        sendFrame(new Frame("F", 0, null, ""));  // End of transmission frame
     }
 
     private void sendFrame(Frame frame) throws IOException {
         OutputStream out = socket.getOutputStream();
         String outputFrame=frame.toByteString();
-        out.write( outputFrame.getBytes());
+        out.write(outputFrame.getBytes());
         /*out.flush();*/
         sentFrames.add(frame);
         System.out.println("Sent: " + outputFrame);
