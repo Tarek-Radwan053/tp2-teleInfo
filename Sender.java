@@ -24,8 +24,10 @@ public class Sender {
         while ((line = fileReader.readLine()) != null) {
             String data = line;
             Frame frame = new Frame("I", frameNum, data, "");
+            String crc = CRC.calculateFrameCRC(frame);
+            frame.setCrc(crc);
             sendFrame(frame);
-            frameNum = (frameNum + 1) % 8;  // Frame number on 3 bits (0-7)
+            frameNum = (frameNum + 1);  // Frame number on 3 bits (0-7)
         }
         sendFrame(new Frame("F", 0, null, ""));  // End of transmission frame
     }

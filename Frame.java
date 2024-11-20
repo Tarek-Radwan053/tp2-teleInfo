@@ -18,22 +18,24 @@ public class Frame {
     //not sure if i should add bit stuffing individually or all together
     public String toByteString() {
         StringBuilder sb = new StringBuilder();
-
         sb.append(type);
         sb.append(num);
 
         // Apply bit stuffing to the data if it's not null binary
-        sb.append(data);
+        if (data!=null) {
+            sb.append(data);
+        }
 
 
         // CRC should be calculated on stuffed data
-        String all=BitStuffing.stringToBinary(String.valueOf(sb));
-        String crc = CRC.calculateFrameCRC(this);
+
+        String crc = CRC.calculateCRC(sb.toString());
         sb.append(crc);
+        System.out.println("crc: "+crc);
 
 
-        all=BitStuffing.applyBitStuffing(all);
-        return (FLAG+all+FLAG);
+
+        return (FLAG+sb+FLAG);
     }
 
 
@@ -42,4 +44,8 @@ public class Frame {
     public int getNum() { return num; }
     public String getData() { return data; }
     public String getCrc() { return crc; }
+
+    public void setCrc(String crc) {
+        this.crc = crc;
+    }
 }
