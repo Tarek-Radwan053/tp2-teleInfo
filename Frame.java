@@ -20,7 +20,10 @@ public class Frame {
         StringBuilder sb = new StringBuilder();
         sb.append(type);
         //transform from int to binairy code on 8 bits
-        String numBinary =String.format("%8s", Integer.toBinaryString(num)).replace(' ', '0');
+        String numBinary="00000000";
+        if (type=="I" || type=="A" || type=="F") {
+             numBinary =String.format("%8s", Integer.toBinaryString(num)).replace(' ', '0');
+        }
         //System.out.println("numBinary: "+numBinary);
 
         // Apply bit stuffing to the data if it's not null binary
@@ -32,6 +35,7 @@ public class Frame {
 
         // CRC should be calculated on unstuffed data
         //System.out.println("data: "+sb.toString());
+
         String allBinairy=BitStuffing.stringToBinary(sb.toString());
         //System.out.println("allBinairy: "+allBinairy);
         String allBinairy1=allBinairy.substring(0,8);
@@ -39,19 +43,23 @@ public class Frame {
         String allBinairy2=allBinairy.substring(8);
         //System.out.println("data: "+allBinairy2);
         allBinairy=allBinairy1+numBinary+allBinairy2;
-        System.out.println("allBinairy: "+allBinairy);
+        //System.out.println("allBinairy: "+allBinairy);
 
         String crc = CRC.calculateCRC(allBinairy);
-        System.out.println("crcofsender: "+crc);
+        //System.out.println("crcofsender: "+crc);
 
         crc=BitStuffing.stringToBinary(crc);
-        System.out.println("crcofsenderBinairy: "+crc);
+        //System.out.println("crcofsenderBinairy: "+crc);
 
 
         allBinairy=allBinairy+crc;
         allBinairy=BitStuffing.applyBitStuffing(allBinairy);
 
-        return (FLAG+allBinairy+FLAG);
+
+        if ((num==0 && type=="I") || type=="F" || type=="A" || type=="C") {//not sure fr the others
+            return (FLAG + allBinairy + FLAG);
+        }
+        else return allBinairy+FLAG;
     }
 
 

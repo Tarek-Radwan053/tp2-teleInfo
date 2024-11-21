@@ -35,7 +35,7 @@ public class Sender {
 
     private void sendFrame(Frame frame) throws IOException {
         OutputStream out = socket.getOutputStream();
-        String outputFrame=frame.toByteString();
+        String outputFrame = frame.toByteString();
         out.write(outputFrame.getBytes());
         /*out.flush();*/
         sentFrames.add(frame);
@@ -77,8 +77,10 @@ public class Sender {
             Sender sender = new Sender();
             sender.connect(host, port);
             sender.sendFrames(fileName);
+
         } catch (IOException e) {
             e.printStackTrace();
         }
+
     }
 }

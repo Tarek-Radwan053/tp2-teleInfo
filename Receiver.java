@@ -24,6 +24,7 @@ public class Receiver {
 
     public void start(int port) throws IOException {
         serverSocket = new ServerSocket(port);
+        serverSocket.setSoTimeout(60000);
         System.out.println("Receiver listening on port " + port);
 
         while (true) {
@@ -67,8 +68,11 @@ public class Receiver {
 
         // Calculate the start and end positions of the frame
         int indexFlag = line.indexOf(FLAG, (frameNbr - 1) * FLAG.length());
+        System.out.println("indexFlag: "+indexFlag);
         //flag 2 may be incorrect
-        int indexFlag2 = line.indexOf(FLAG, frameNbr * FLAG.length());
+        int indexFlag2 = line.indexOf(FLAG, indexFlag + FLAG.length());
+        System.out.println("indexFlag2: "+indexFlag2);
+        System.out.println("line: "+line);
 
         // Ensure valid flag positions were found
         if (indexFlag == -1 || indexFlag2 == -1) {
@@ -83,7 +87,7 @@ public class Receiver {
         String unstuffedContent = BitStuffing.removeBitStuffing(frameContent);
 
         // Step 2: Ensure the unstuffed content is valid for processing
-        if (unstuffedContent.length() < 16) { // At least 1 char for type, 1 for num, and 4 for CRC
+        if (unstuffedContent.length() < 32) { // At least 1 char for type, 1 for num, and 4 for CRC
             System.out.println("Error: Frame content too small after unstuffing.");
             return null;
         }
@@ -91,13 +95,13 @@ public class Receiver {
         // Step 3: Decode type (1 character = 8 bits)
         String typeBinary = unstuffedContent.substring(0, 8);
         String type = String.valueOf((char) Integer.parseInt(typeBinary, 2));
-        System.out.println("type: "+type);
+        //System.out.println("type: "+type);
 
         // Step 4: Decode num (1 character = 8 bits)
         String numBinary = unstuffedContent.substring(8, 16);
-        System.out.println("numBinary: "+numBinary);
+        //System.out.println("numBinary: "+numBinary);
         int num = Integer.parseInt(numBinary, 2);
-        System.out.println("num: "+num);
+        //System.out.println("num: "+num);
 
         // Step 5: Extract data (all bits before the last 16 for CRC)
         String dataBinary = unstuffedContent.substring(16, unstuffedContent.length() - 32);
@@ -113,9 +117,9 @@ public class Receiver {
         //passing the binairy code to calc crc
         String crc=unstuffedContent.substring(0,unstuffedContent.length()-32);
         crc = CRC.calculateCRC(crc);
-        System.out.println("crcRecievr: "+crc);
+        //System.out.println("crcRecievr: "+crc);
         crc=BitStuffing.stringToBinary(crc);
-        System.out.println("crcRecievrBinairy: "+crc);
+        //System.out.println("crcRecievrBinairy: "+crc);
 
 
         // Return the reconstructed Frame object
@@ -139,8 +143,25 @@ public class Receiver {
     private void sendAck(Socket clientSocket, int frameNum) throws IOException {
         Frame ackFrame = new Frame("A", frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
-        out.write(ackFrame.toByteString().getBytes());
-        //out.flush();
+        String outputFrame=ackFrame.toByteString();
+        if (serverSocket.isClosed() ) {
+            System.err.println("Socket is closed or not connected.");
+            return;
+        }
+        int retries = 3;
+        while (retries > 0) {
+            try {
+                out.write(outputFrame.getBytes());
+                out.flush();
+                break; // Break if successful
+            } catch (IOException e) {
+                retries--;
+                System.err.println("Retrying to send ACK... Retries left: " + retries);
+            }
+        }
+        if (retries == 0) {
+            System.err.println("Failed to send ACK after multiple attempts.");
+        }
         System.out.println("Sent ACK for frame " + frameNum);
     }
 

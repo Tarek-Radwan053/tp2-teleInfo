@@ -29,7 +29,7 @@ public class CRC {
 
         String numBinary =String.format("%8s", Integer.toBinaryString(frame.getNum())).replace(' ', '0');
         String b=BitStuffing.stringToBinary(frame.getType())+numBinary+BitStuffing.stringToBinary(frame.getData());
-        System.out.println("b: "+b);
+        //System.out.println("b: "+b);
         b=calculateCRC(b);
         b=BitStuffing.stringToBinary(b);
 
