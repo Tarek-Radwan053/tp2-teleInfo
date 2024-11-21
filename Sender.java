@@ -43,9 +43,10 @@ public class Sender {
             }
 
             // Move base forward after receiving an ACK for the frame at 'base'
-            while (isAckReceivedForFrame(base)) {
+            if (isAckReceivedForFrame(base)) {
                 base++;  // Move base to the next unacknowledged frame
             }
+            // should implent if not received the ack
         }
 
         // Send the final frame (End of transmission)
@@ -73,14 +74,18 @@ public class Sender {
             // Set a timeout for waiting for the ACK (e.g., 5 seconds)
             socket.setSoTimeout(5000);  // 5 seconds timeout
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String ack = reader.readLine();
+            for (int i = base; i < nextSeqNum; i++) {
+                System.out.println("waiting for ack for frame " + i);
+                String ack = reader.readLine();
 
-            if (ack != null && ack.equals("ACK " + frameNum)) {
-                System.out.println("Received ACK for frame " + frameNum);
-                return true;
-            } else {
-                System.err.println("Received unexpected response: " + ack);
-                return false;
+
+                if (ack != null && ack.equals("ACK " + frameNum)) {
+                    System.out.println("Received ACK for frame " + frameNum);
+                    return true;
+                } else {
+                    System.err.println("Received unexpected response: " + ack);
+                    return false;
+                }
             }
         } catch (SocketTimeoutException e) {
             System.err.println("Timeout waiting for ACK for frame " + frameNum);
@@ -89,7 +94,12 @@ public class Sender {
             System.err.println("Error receiving ACK: " + e.getMessage());
             return false;
         }
+        return false;
     }
+
+
+
+
 
     // Resend frames starting from the 'base' frame
     private void resendFrames() throws IOException {

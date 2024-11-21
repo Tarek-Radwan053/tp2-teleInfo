@@ -55,11 +55,9 @@ public class Frame {
         allBinairy=allBinairy+crc;
         allBinairy=BitStuffing.applyBitStuffing(allBinairy);
 
+        return (FLAG + allBinairy + FLAG);
 
-        if ((num==0 && type=="I") || type=="F" || type=="A" || type=="C") {//not sure fr the others
-            return (FLAG + allBinairy + FLAG);
-        }
-        else return allBinairy+FLAG;
+
     }
 
 

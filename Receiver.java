@@ -9,6 +9,8 @@ import java.util.Scanner;
 public class Receiver {
 
     private int nbrFrames=0;
+    private int expectedFrameNum = 0;  // Keeps track of the expected frame number
+    private int windowSize = 4;  // Window size for Go-Back-N ARQ
 
     private ServerSocket serverSocket;
     private List<Frame> receivedFrames = new ArrayList<>();
@@ -48,14 +50,13 @@ public class Receiver {
         // Loop through the incoming data
         while (scanner.hasNext()) {
             String line = scanner.nextLine();  // Read each line
-
             System.out.println("line: " + line);
 
             // Count the number of frames based on flags
             nbrFrames = countFlags(line, "01111110") / 2;
             System.out.println("Detected " + nbrFrames + " frames.");
 
-            // Process each frame
+            // Process each frame within the window size
             for (int frameNbr = 1; frameNbr <= nbrFrames; frameNbr++) {
                 Frame frame = identifyFrame(line, frameNbr);
                 if (frame == null) {
@@ -63,9 +64,24 @@ public class Receiver {
                     continue;
                 }
 
-                if (checkErrors(frame)) {
-                    sendAck(clientSocket, frame.getNum());
+                // Check if the frame is the expected one within the window
+                if (frame.getNum() == expectedFrameNum) {
+                    // If the frame is correct, acknowledge it and increment the expected number
+                    if (checkErrors(frame)) {
+                        sendAck(clientSocket, frame.getNum());
+                        expectedFrameNum = (expectedFrameNum + 1) % (windowSize + 1);  // Slide the window
+                    } else {
+                        sendRejection(clientSocket, frame.getNum());
+                    }
+                } else if (frame.getNum() > expectedFrameNum && frame.getNum() < expectedFrameNum + windowSize) {
+                    // If the frame is within the window, accept and acknowledge it
+                    if (checkErrors(frame)) {
+                        sendAck(clientSocket, frame.getNum());
+                    } else {
+                        sendRejection(clientSocket, frame.getNum());
+                    }
                 } else {
+                    // Reject out-of-order frames
                     sendRejection(clientSocket, frame.getNum());
                 }
             }
@@ -164,7 +180,6 @@ public class Receiver {
     }
 
     private void sendAck(Socket clientSocket, int frameNum) {
-        frameNum++;
         try {
             if (clientSocket.isClosed() || clientSocket.isOutputShutdown()) {
                 System.err.println("Cannot send ACK. Socket is closed or output is shut down.");
@@ -174,15 +189,16 @@ public class Receiver {
             Frame ackFrame = new Frame("A", frameNum, null, "");
             OutputStream out = clientSocket.getOutputStream();
             String outputFrame = ackFrame.toByteString();
+            outputFrame += "\n";  // Append newline
 
             int retries = 3;
             int backoff = 100; // Milliseconds
 
             while (retries > 0) {
                 try {
-                    out.write(outputFrame.getBytes());
+                    out.write(("ACK " + frameNum + "\n").getBytes());
                     out.flush();
-                    System.out.println("Sent ACK for frame " + frameNum);
+                    System.out.println("ACK " + frameNum);
                     return;
                 } catch (IOException e) {
                     retries--;
@@ -204,7 +220,7 @@ public class Receiver {
         Frame rejFrame = new Frame("R", frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
         out.write(rejFrame.toByteString().getBytes());
-        //out.flush();
+        out.flush();
         System.out.println("Sent REJ for frame " + frameNum);
     }
 }
