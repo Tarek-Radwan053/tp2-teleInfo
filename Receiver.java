@@ -8,6 +8,7 @@ import java.util.Objects;
 public class Receiver {
 
     private int nbrFrames=0;
+
     private ServerSocket serverSocket;
     private List<Frame> receivedFrames = new ArrayList<>();
 
@@ -26,30 +27,43 @@ public class Receiver {
         serverSocket = new ServerSocket(port);
         serverSocket.setSoTimeout(60000);
         System.out.println("Receiver listening on port " + port);
-
         while (true) {
-            Socket clientSocket = serverSocket.accept();
-            System.out.println("Connection accepted from " + clientSocket.getInetAddress());
+            try (Socket clientSocket = serverSocket.accept()) {
+                System.out.println("Connection accepted from " + clientSocket.getInetAddress());
 
-            // Set a timeout for reading from the socket
-            /*clientSocket.setSoTimeout(5000);  // 5 seconds timeout*/
-                InputStream in = clientSocket.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-                String line="";
-                while ((line = reader.readLine()) != null) {
-                    nbrFrames=countFlags( line,"01111110");
-                    nbrFrames=nbrFrames/2;
-                    for (int frameNbr=1;frameNbr<nbrFrames+1;frameNbr++) {
-                        Frame frame = identifyFrame(line, frameNbr);
-                        if (checkErrors(frame)) {
-                            sendAck(clientSocket, frame.getNum());
-                        } else {
-                            sendRejection(clientSocket, frame.getNum());
-                        }
-                    }
+                // Process the incoming data from the sender
+                processIncomingData(clientSocket);
+            } catch (IOException e) {
+                System.err.println("Error handling client connection: " + e.getMessage());
+            }
 
+        }
+    }
+    private void processIncomingData(Socket clientSocket) throws IOException {
+        InputStream in = clientSocket.getInputStream();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            // Count the number of frames based on flags
+            nbrFrames = countFlags(line, "01111110") / 2;
+            System.out.println("Detected " + nbrFrames + " frames.");
+
+            // Process each frame
+            for (int frameNbr = 1; frameNbr <= nbrFrames; frameNbr++) {
+                Frame frame = identifyFrame(line, frameNbr);
+                if (frame == null) {
+                    System.err.println("Frame " + frameNbr + " is invalid. Skipping...");
+                    continue;
+                }
+
+                if (checkErrors(frame)) {
+                    sendAck(clientSocket, frame.getNum());
+                } else {
+                    sendRejection(clientSocket, frame.getNum());
                 }
             }
+        }
     }
     public int countFlags(String line, String flag) {
         int count = 0;
@@ -68,11 +82,11 @@ public class Receiver {
 
         // Calculate the start and end positions of the frame
         int indexFlag = line.indexOf(FLAG, (frameNbr - 1) * FLAG.length());
-        System.out.println("indexFlag: "+indexFlag);
+        //System.out.println("indexFlag: "+indexFlag);
         //flag 2 may be incorrect
         int indexFlag2 = line.indexOf(FLAG, indexFlag + FLAG.length());
-        System.out.println("indexFlag2: "+indexFlag2);
-        System.out.println("line: "+line);
+        //System.out.println("indexFlag2: "+indexFlag2);
+        //System.out.println("line: "+line);
 
         // Ensure valid flag positions were found
         if (indexFlag == -1 || indexFlag2 == -1) {
@@ -140,29 +154,41 @@ public class Receiver {
         return CRC.validateCRC(frame);
     }
 
-    private void sendAck(Socket clientSocket, int frameNum) throws IOException {
-        Frame ackFrame = new Frame("A", frameNum, null, "");
-        OutputStream out = clientSocket.getOutputStream();
-        String outputFrame=ackFrame.toByteString();
-        if (serverSocket.isClosed() ) {
-            System.err.println("Socket is closed or not connected.");
-            return;
-        }
-        int retries = 3;
-        while (retries > 0) {
-            try {
-                out.write(outputFrame.getBytes());
-                out.flush();
-                break; // Break if successful
-            } catch (IOException e) {
-                retries--;
-                System.err.println("Retrying to send ACK... Retries left: " + retries);
+    private void sendAck(Socket clientSocket, int frameNum) {
+        frameNum++;
+        try {
+            if (clientSocket.isClosed() || clientSocket.isOutputShutdown()) {
+                System.err.println("Cannot send ACK. Socket is closed or output is shut down.");
+                return;
             }
+
+            Frame ackFrame = new Frame("A", frameNum, null, "");
+            OutputStream out = clientSocket.getOutputStream();
+            String outputFrame = ackFrame.toByteString();
+
+            int retries = 3;
+            int backoff = 100; // Milliseconds
+
+            while (retries > 0) {
+                try {
+                    out.write(outputFrame.getBytes());
+                    out.flush();
+                    System.out.println("Sent ACK for frame " + frameNum);
+                    return;
+                } catch (IOException e) {
+                    retries--;
+                    System.err.println("Retrying to send ACK... Retries left: " + retries);
+                    Thread.sleep(backoff);
+                    backoff *= 2; // Exponential backoff
+                }
+            }
+
+            if (retries == 0) {
+                System.err.println("Failed to send ACK for frame " + frameNum + " after multiple attempts.");
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error sending ACK for frame " + frameNum + ": " + e.getMessage());
         }
-        if (retries == 0) {
-            System.err.println("Failed to send ACK after multiple attempts.");
-        }
-        System.out.println("Sent ACK for frame " + frameNum);
     }
 
     private void sendRejection(Socket clientSocket, int frameNum) throws IOException {
