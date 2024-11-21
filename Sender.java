@@ -1,7 +1,6 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.net.Socket;
 
 
 public class Sender {
@@ -12,9 +11,8 @@ public class Sender {
     private Timer timer;
 
     public void connect(String host, int port) throws IOException {
-
         socket = new Socket(host, port);
-        System.out.println("Connected to receiver at " + host + ":" + port);
+        System.out.println("Connected to receiver at " + host + " : " + port);
     }
 
     public void sendFrames(String fileName) throws IOException {
@@ -28,14 +26,14 @@ public class Sender {
             sendFrame(frame);
             frameNum = (frameNum + 1) % 8;  // Frame number on 3 bits (0-7)
         }
-        sendFrame(new Frame('F', 0, null, ""));  // End of transmission frame
+        sendFrame(new Frame('F', 0, "", ""));  // End of transmission frame
     }
 
     private void sendFrame(Frame frame) throws IOException {
         OutputStream out = socket.getOutputStream();
-        String outputFrame=frame.toByteString();
-        out.write( outputFrame.getBytes());
-        /*out.flush();*/
+        String outputFrame = frame.toByteString();
+        out.write(outputFrame.getBytes());
+        out.flush();
         sentFrames.add(frame);
         System.out.println("Sent: " + outputFrame);
         /*startTimer();*/

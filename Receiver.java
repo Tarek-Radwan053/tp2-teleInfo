@@ -19,36 +19,32 @@ public class Receiver {
         int port = Integer.parseInt(args[0]);  // Port number passed as command-line argument
         Receiver receiver = new Receiver();
         receiver.start(port);
-
     }
 
     public void start(int port) throws IOException {
-        serverSocket = new ServerSocket(port);
+        ServerSocket serverSocket = new ServerSocket(port);
         System.out.println("Receiver listening on port " + port);
+        Socket clientSocket = serverSocket.accept();
+        System.out.println("Connection accepted from " + clientSocket.getInetAddress());
 
         while (true) {
-            Socket clientSocket = serverSocket.accept();
-            System.out.println("Connection accepted from " + clientSocket.getInetAddress());
-
             // Set a timeout for reading from the socket
-            /*clientSocket.setSoTimeout(5000);  // 5 seconds timeout*/
-                InputStream in = clientSocket.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-                String line="";
-                while ((line = reader.readLine()) != null) {
-                    nbrFrames=countFlags( line,"01111110");
-                    nbrFrames=nbrFrames/2;
-                    for (int frameNbr=1;frameNbr<nbrFrames+1;frameNbr++) {
-                        Frame frame = identifyFRame(line, frameNbr);
-                        if (checkErrors(frame)) {
-                            sendAck(clientSocket, frame.getNum());
-                        } else {
-                            sendRejection(clientSocket, frame.getNum());
-                        }
+            //clientSocket.setSoTimeout(5000);  // 5 seconds timeout
+            BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                nbrFrames = countFlags( line,"01111110");
+                nbrFrames = nbrFrames/2;
+                for (int frameNbr = 1; frameNbr < nbrFrames + 1; frameNbr++) {
+                    Frame frame = identifyFrame(line, frameNbr);
+                    if (checkErrors(frame)) {
+                        sendAck(clientSocket, frame.getNum());
+                    } else {
+                        sendRejection(clientSocket, frame.getNum());
                     }
-
                 }
             }
+        }
     }
     public int countFlags(String line, String flag) {
         int count = 0;
@@ -62,7 +58,7 @@ public class Receiver {
 
         return count;
     }
-    public Frame identifyFRame(String line, int frameNbr) {
+    public Frame identifyFrame(String line, int frameNbr) {
         String FLAG = "01111110";  // The flag that marks the start and end of each frame
 
         // Calculate the start and end positions of the frame
@@ -99,13 +95,11 @@ public class Receiver {
         // not sure if i shoud unstef this or the data it self?
         //
 
-        String crc=frameContent.substring(frameContent.length() - 4);
+        String crc = frameContent.substring(frameContent.length() - 4);
 
         // Return the frame object
         return new Frame(type, num, data, crc);
     }
-
-
 
     private boolean checkErrors(Frame frame) {
         // Verify the CRC

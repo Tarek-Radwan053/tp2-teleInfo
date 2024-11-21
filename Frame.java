@@ -17,12 +17,12 @@ public class Frame {
         StringBuilder sb = new StringBuilder();
         sb.append(FLAG);
         sb.append(type);
-        sb.append( num);
+        sb.append(num);
 
-        // Apply bit stuffing to the data if it's not null
-        String stuffedData = (data != null) ? BitStuffing.applyBitStuffing(data) : "";
+        // Convert data to binary and apply bit stuffing
+        String binaryData = BitStuffing.toBinary(data);  // Convert data to binary
+        String stuffedData = (data != null) ? BitStuffing.applyBitStuffing(binaryData) : ""; // apply bit stuffing
         sb.append(stuffedData);
-        //should i convert it to binary and stuff then?
 
         // CRC should be calculated on stuffed data
         String crc = CRC.calculateFrameCRC(this);

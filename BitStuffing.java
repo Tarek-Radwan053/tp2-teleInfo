@@ -1,4 +1,14 @@
 public class BitStuffing {
+    // Method to convert data (String) to binary, before bit stuffing
+    public static String toBinary(String data) {
+        StringBuilder binaryData = new StringBuilder();
+        for (char c : data.toCharArray()) {
+            String binaryChar = String.format("%8s", Integer.toBinaryString(c)).replace(' ', '0'); //8-bit binary representation
+            binaryData.append(binaryChar);
+        }
+        return binaryData.toString();
+    }
+
     // Method to apply bit stuffing to a string of bits
     public static String applyBitStuffing(String data) {
         StringBuilder stuffedData = new StringBuilder();
