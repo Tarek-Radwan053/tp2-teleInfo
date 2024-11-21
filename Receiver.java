@@ -67,6 +67,7 @@ public class Receiver {
 
         // Calculate the start and end positions of the frame
         int indexFlag = line.indexOf(FLAG, (frameNbr - 1) * FLAG.length());
+        //flag 2 may be incorrect
         int indexFlag2 = line.indexOf(FLAG, frameNbr * FLAG.length());
 
         // Ensure valid flag positions were found
@@ -105,14 +106,17 @@ public class Receiver {
             String byteSegment = dataBinary.substring(i, Math.min(i + 8, dataBinary.length()));
             data.append((char) Integer.parseInt(byteSegment, 2));
         }
-        System.out.println("data: "+data);
+        //System.out.println("data: "+data);
 
 
         // Step 6: Extract and decode CRC (last 16 bits)
+        //passing the binairy code to calc crc
         String crc=unstuffedContent.substring(0,unstuffedContent.length()-32);
         crc = CRC.calculateCRC(crc);
+        System.out.println("crcRecievr: "+crc);
         crc=BitStuffing.stringToBinary(crc);
-        System.out.println("crc: "+crc);
+        System.out.println("crcRecievrBinairy: "+crc);
+
 
         // Return the reconstructed Frame object
         return new Frame(type, num, data.toString(), crc);
@@ -129,7 +133,7 @@ public class Receiver {
 
     private boolean checkErrors(Frame frame) {
         // Verify the CRC
-        return CRC.validateCRC(frame.getData(), frame.getCrc());
+        return CRC.validateCRC(frame);
     }
 
     private void sendAck(Socket clientSocket, int frameNum) throws IOException {
