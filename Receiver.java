@@ -88,12 +88,12 @@ public class Receiver {
         }
 
         // Step 3: Decode type (1 character = 8 bits)
-        String typeBinary = unstuffedContent.substring(0, 1);
+        String typeBinary = unstuffedContent.substring(0, 8);
         String type = String.valueOf((char) Integer.parseInt(typeBinary, 2));
         System.out.println("type: "+type);
 
         // Step 4: Decode num (1 character = 8 bits)
-        String numBinary = unstuffedContent.substring(1, 2);
+        String numBinary = unstuffedContent.substring(8, 16);
         System.out.println("numBinary: "+numBinary);
         int num = Integer.parseInt(numBinary, 2);
         System.out.println("num: "+num);
@@ -109,8 +109,9 @@ public class Receiver {
 
 
         // Step 6: Extract and decode CRC (last 16 bits)
-
-        String crc = CRC.calculateCRC(unstuffedContent);
+        String crc=unstuffedContent.substring(0,unstuffedContent.length()-32);
+        crc = CRC.calculateCRC(crc);
+        crc=BitStuffing.stringToBinary(crc);
         System.out.println("crc: "+crc);
 
         // Return the reconstructed Frame object

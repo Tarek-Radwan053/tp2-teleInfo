@@ -29,6 +29,7 @@ public class Sender {
             sendFrame(frame);
             frameNum = (frameNum + 1);  // Frame number on 3 bits (0-7)
         }
+
         sendFrame(new Frame("F", 0, null, ""));  // End of transmission frame
     }
 
