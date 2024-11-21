@@ -21,9 +21,9 @@ public class Sender {
     // Send frames from the file
     public void sendFrames(String fileName) throws IOException {
         fileReader = new BufferedReader(new FileReader(fileName));
-        String line;
+        String line=fileReader.readLine();
 
-        while ((line = fileReader.readLine()) != null || base < nextSeqNum) {
+        while ((line ) != null || base < nextSeqNum) {
             // Send frames while window is not full
             while (nextSeqNum < base + windowSize && line != null) {
                 String data = line;
@@ -51,6 +51,7 @@ public class Sender {
 
         // Send the final frame (End of transmission)
         sendFrame(new Frame("F", nextSeqNum, null, ""));  // End of transmission frame
+        System.out.println("Sent End of Communication (F) frame");
     }
 
     private void sendFrame(Frame frame) throws IOException {

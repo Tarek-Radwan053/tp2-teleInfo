@@ -52,6 +52,7 @@ public class Receiver {
             String line = scanner.nextLine();  // Read each line
             System.out.println("line: " + line);
 
+
             // Count the number of frames based on flags
             nbrFrames = countFlags(line, "01111110") / 2;
             System.out.println("Detected " + nbrFrames + " frames.");
@@ -62,6 +63,14 @@ public class Receiver {
                 if (frame == null) {
                     System.err.println("Frame " + frameNbr + " is invalid. Skipping...");
                     continue;
+                }
+                // Check if the frame type is "F" (End of communication frame)
+                if ("F".equals(frame.getType())) {
+                    System.out.println("Received End of Communication (F) frame.");
+                    // Send acknowledgment for the end frame
+                    System.out.println("Communication ended, closing connection.");
+                    sendAck(clientSocket, 0);
+                    return;  // Stop processing, end the communication
                 }
 
                 // Check if the frame is the expected one within the window
