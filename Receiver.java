@@ -3,6 +3,7 @@ import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Scanner;
 
 
 public class Receiver {
@@ -41,10 +42,15 @@ public class Receiver {
     }
     private void processIncomingData(Socket clientSocket) throws IOException {
         InputStream in = clientSocket.getInputStream();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-        String line;
+        Scanner scanner = new Scanner(in);  // Using Scanner to read input stream
+        System.out.println("Receiving data from sender...");
 
-        while ((line = reader.readLine()) != null) {
+        // Loop through the incoming data
+        while (scanner.hasNext()) {
+            String line = scanner.nextLine();  // Read each line
+
+            System.out.println("line: " + line);
+
             // Count the number of frames based on flags
             nbrFrames = countFlags(line, "01111110") / 2;
             System.out.println("Detected " + nbrFrames + " frames.");
@@ -64,7 +70,10 @@ public class Receiver {
                 }
             }
         }
+
+        System.out.println("All frames received and processed.");
     }
+
     public int countFlags(String line, String flag) {
         int count = 0;
         int index = 0;

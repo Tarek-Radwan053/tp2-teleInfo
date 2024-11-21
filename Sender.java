@@ -55,11 +55,17 @@ public class Sender {
     private void sendFrame(Frame frame) throws IOException {
         OutputStream out = socket.getOutputStream();
         String outputFrame = frame.toByteString();
+
+        // Add a newline character at the end of the frame
+        outputFrame += "\n";  // Append newline
+
         out.write(outputFrame.getBytes());
         out.flush();
-        sentFrames.add(frame);
-        System.out.println("Sent: " + outputFrame);
+
+        System.out.println("Sent: " + outputFrame);  // Log the sent frame with newline
+        sentFrames.add(frame);  // Track the sent frame
     }
+
 
     // Wait for ACK with a timeout
     private boolean waitForAck(int frameNum) {
