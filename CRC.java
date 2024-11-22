@@ -25,9 +25,16 @@ public class CRC {
 
     // Validate the CRC
     //not sure if this is correct maybe the comparaisan shoud be between the calculated crc from unstufed data and the  crc unstefed?
-    public static boolean validateCRC(String input, String crc) {
-        String b=calculateCRC(input);
-        boolean a= Objects.equals(b, crc);
+    public static boolean validateCRC(Frame frame) {
+
+        String numBinary =String.format("%8s", Integer.toBinaryString(frame.getNum())).replace(' ', '0');
+        String b=BitStuffing.stringToBinary(frame.getType())+numBinary+BitStuffing.stringToBinary(frame.getData());
+        //System.out.println("b: "+b);
+        b=calculateCRC(b);
+        b=BitStuffing.stringToBinary(b);
+
+
+        boolean a= Objects.equals(b, frame.getCrc());
         return a;
     }
 
