@@ -30,16 +30,20 @@ public class Sender {
                 Frame frame = new Frame("I", nextSeqNum, data, "");
                 String crc = CRC.calculateFrameCRC(frame);
                 frame.setCrc(crc);
-                boolean isLastFrameInWindow = (nextSeqNum == base + windowSize - 1);
-                boolean isLastFrameInBatch = (line == null);
-                sendFrame(frame,isLastFrameInWindow || isLastFrameInBatch);
-                nextSeqNum++;  // Increment nextSeqNum
                 line = fileReader.readLine();  // Read next line for data
+                if (line == null) {
+                    sendFrame(frame, true);  // Send the last frame
+                }
+                else {
+                    sendFrame(frame, false);  // Send the frame
+                }
+                nextSeqNum++;  // Increment nextSeqNum
             }
             int biggestFrame=-1;
             for (int i = nextSeqNum-1; i > base; i--) {
                 if (waitForAck(i)) {
                     biggestFrame=i;
+                    break;
                 }
             }
             // Wait for ACK for the frame at 'base'
@@ -60,19 +64,18 @@ public class Sender {
             }
         }
         // Send the final frame (End of transmission)
-        sendFrame(new Frame("F", nextSeqNum, null, ""),true);  // End of transmission frame
+        sendFrame(new Frame("F", nextSeqNum, null, ""),false);  // End of transmission frame
         System.out.println("Sent End of Communication (F) frame");
     }
 
-    private void sendFrame(Frame frame, boolean isLastFrame) throws IOException {
+    private void sendFrame(Frame frame,boolean isLast) throws IOException {
         OutputStream out = socket.getOutputStream();
         String outputFrame = frame.toByteString();
 
         // Add newline for the last frame in a batch or "F" frame
-        if (isLastFrame) {
+        if (frame.getType().equals("F")  || isLast || nextSeqNum > base + windowSize) {
             outputFrame += "\n";
         }
-
         out.write(outputFrame.getBytes());
         out.flush();
 
@@ -84,22 +87,18 @@ public class Sender {
     // Wait for ACK with a timeout
     private boolean waitForAck(int frameNum) {
         try {
-            //socket.setSoTimeout(3000);  // 3 seconds timeout
+            socket.setSoTimeout(3000);  // 3 seconds timeout
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String ack;
 
-            while ((ack = reader.readLine()) != null) {  // Continuously read incoming messages
-                if (ack.startsWith("ACK ")) {
-                    int ackNum = Integer.parseInt(ack.split(" ")[1]);  // Extract the frame number from the ACK
-
+            while ((ack = reader.readLine()) != null) {
+                frameNum++;// Continuously read incoming messages
+                if (ack != null && ack.contains("ACK " + frameNum)) {
+                    System.out.println("Received ACK for frame " + frameNum);
+                    return true;
 
                     // Check if the received ACK matches the expected frameNum
-                    if (ackNum == frameNum) {
-                        System.out.println("Received ACK for frame " + frameNum);
-                        return true;  // ACK received for the requested frame
-                    } else {
-                        System.err.println("Received duplicate or outdated ACK for frame " + ackNum);
-                    }
+
                 } else {
                     System.err.println("Received unexpected response: " + ack);
                 }
@@ -118,8 +117,11 @@ public class Sender {
     private void resendFrames(int frameNbr) throws IOException {
         for (int i = frameNbr; i < nextSeqNum; i++) {
             Frame frame = sentFrames.get(i);
-            boolean isLastFrame = (i == nextSeqNum - 1);
-            sendFrame(frame, isLastFrame);  // Append newline if necessary
+            if (i == nextSeqNum - 1 || i == frameNbr) {
+                sendFrame(frame, true);  // Append newline if necessary
+            } else {
+                sendFrame(frame, false);  // Append newline if necessary
+            }
         }
     }
 

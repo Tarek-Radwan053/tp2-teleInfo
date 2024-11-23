@@ -14,7 +14,7 @@ public class Receiver {
     private int windowSize = 4;  // Window size for Go-Back-N ARQ
 
     private ServerSocket serverSocket;
-    private List<Frame> receivedFrames = new ArrayList<>();
+
 
     public static void main(String[] args) throws IOException {
         if (args.length != 1) {
@@ -215,10 +215,11 @@ public class Receiver {
                 return;
             }
 
-            Frame ackFrame = new Frame("A", frameNum, null, "");
+            //Frame ackFrame = new Frame("A", frameNum, null, "");
             OutputStream out = clientSocket.getOutputStream();
-            String outputFrame = ackFrame.toByteString();
-            outputFrame += "\n";  // Append newline
+            //String outputFrame = ackFrame.toByteString();
+            //outputFrame += "\n";  // Append newline
+            //out.write(outputFrame.getBytes());
 
             int retries = 3;
             int backoff = 100; // Milliseconds
