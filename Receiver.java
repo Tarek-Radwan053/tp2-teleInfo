@@ -37,6 +37,9 @@ public class Receiver {
 
                 // Process the incoming data from the sender
                 processIncomingData(clientSocket);
+                if (endt==1) {
+                    break;
+                }
             } catch (IOException e) {
                 System.err.println("Error handling client connection: " + e.getMessage());
             }
@@ -245,6 +248,8 @@ public class Receiver {
     private void sendRejection(Socket clientSocket, int frameNum) throws IOException {
         Frame rejFrame = new Frame("R", frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
+        String outputFrame = rejFrame.toByteString();
+        outputFrame += "\n";  // Append newline
         out.write(rejFrame.toByteString().getBytes());
         out.flush();
         System.out.println("Sent REJ for frame " + frameNum);
