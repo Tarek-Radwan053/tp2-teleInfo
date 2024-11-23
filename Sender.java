@@ -31,15 +31,15 @@ public class Sender {
                 String crc = CRC.calculateFrameCRC(frame);
                 frame.setCrc(crc);
                 sendFrame(frame);
-                sentFrames.add(frame);
                 nextSeqNum++;  // Increment nextSeqNum
                 line = fileReader.readLine();  // Read next line for data
             }
 
+
             // Wait for ACK for the frame at 'base'
-            if (!waitForAck(base)) {
+           /* if (!waitForAck(base)) {
                 System.out.println("Timeout! Resending frames starting from " + base);
-                resendFrames();  // Resend frames from base onwards
+                //resendFrames();  // Resend frames from base onwards
             }
 
             // Move base forward after receiving an ACK for the frame at 'base'
@@ -47,6 +47,9 @@ public class Sender {
                 base++;  // Move base to the next unacknowledged frame
             }
             // should implent if not received the ack
+
+            */
+            break;
         }
 
         // Send the final frame (End of transmission)
@@ -59,7 +62,10 @@ public class Sender {
         String outputFrame = frame.toByteString();
 
         // Add a newline character at the end of the frame
-        outputFrame += "\n";  // Append newline
+        if (nextSeqNum > base + windowSize || frame.getType().equals("F")) {
+            outputFrame += "\n";  // Append newline
+        }
+
 
         out.write(outputFrame.getBytes());
         out.flush();
