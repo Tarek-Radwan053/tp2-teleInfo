@@ -40,7 +40,7 @@ public class Sender {
                 nextSeqNum++;  // Increment nextSeqNum
             }
             int biggestFrame=-1;
-            for (int i = nextSeqNum-1; i > base; i--) {
+            for (int i = nextSeqNum; i > base; i--) {
                 if (waitForAck(i)) {
                     biggestFrame=i;
                     break;
@@ -50,15 +50,15 @@ public class Sender {
             if (biggestFrame==-1) {
                 System.out.println("Timeout! Resending frames starting from " + base);
                 resendFrames(base);  // Resend frames from base onwards
-                while (!waitForAck(nextSeqNum-1)) {
+                while (!waitForAck(nextSeqNum)) {
                     resendFrames(base);
                 }
 
-            } else if (biggestFrame==nextSeqNum-1) {
-                base=biggestFrame+1;
+            } else if (biggestFrame==nextSeqNum) {
+                base=biggestFrame;
             }
             else {
-                while (!waitForAck(nextSeqNum-1)) {
+                while (!waitForAck(nextSeqNum)) {
                     resendFrames(biggestFrame+1);
                 }
             }
@@ -73,7 +73,7 @@ public class Sender {
         String outputFrame = frame.toByteString();
 
         // Add newline for the last frame in a batch or "F" frame
-        if (frame.getType().equals("F")  || isLast || nextSeqNum > base + windowSize) {
+        if (frame.getType().equals("F")  || isLast || nextSeqNum +1>= base + windowSize) {
             outputFrame += "\n";
         }
         out.write(outputFrame.getBytes());
@@ -92,7 +92,7 @@ public class Sender {
             String ack;
 
             while ((ack = reader.readLine()) != null) {
-                frameNum++;// Continuously read incoming messages
+                // Continuously read incoming messages
                 if (ack != null && ack.contains("ACK " + frameNum)) {
                     System.out.println("Received ACK for frame " + frameNum);
                     return true;

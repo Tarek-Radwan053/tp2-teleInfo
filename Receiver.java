@@ -83,7 +83,7 @@ public class Receiver {
                     // If the frame is correct, acknowledge it and increment the expected number
                     if (checkErrors(frame)) {
                         System.out.println("Received valid frame: " + frame.getNum());
-                        expectedFrameNum = (expectedFrameNum + 1) % (windowSize + 1);  // Slide the window
+                        expectedFrameNum = (expectedFrameNum + 1) ;  // Slide the window
                     } else {
                         sendRejection(clientSocket, frame.getNum());
                     }
