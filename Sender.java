@@ -79,7 +79,7 @@ public class Sender {
         out.write(outputFrame.getBytes());
         out.flush();
 
-        System.out.println("Sent: " + outputFrame);  // Log the frame
+        System.out.println("Sent: " + frame.getData());  // Log the frame
         sentFrames.add(frame);  // Track the sent frame
     }
 

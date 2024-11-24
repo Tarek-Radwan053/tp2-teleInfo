@@ -2,7 +2,6 @@ import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Scanner;
 
 
@@ -11,7 +10,7 @@ public class Receiver {
     private int nbrFrames=0;
     private   int endt=0;//end of communication
     private int expectedFrameNum = 0;  // Keeps track of the expected frame number
-    private int windowSize = 4;  // Window size for Go-Back-N ARQ
+    private int windowSize = 1;  // Window size for Go-Back-N ARQ
 
     private ServerSocket serverSocket;
 
@@ -73,9 +72,8 @@ public class Receiver {
                     System.out.println("Received End of Communication (F) frame.");
                     // Send acknowledgment for the end frame
                     System.out.println("Communication ended, closing connection.");
-                    //sendAck(clientSocket, 0);
                     endt=1;
-                    break;  // Stop processing, end the communication
+                    return;  // Stop processing, end the communication
                 }
 
                 // Check if the frame is the expected one within the window
@@ -249,8 +247,7 @@ public class Receiver {
     private void sendRejection(Socket clientSocket, int frameNum) throws IOException {
         Frame rejFrame = new Frame("R", frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
-        String outputFrame = rejFrame.toByteString();
-        outputFrame += "\n";  // Append newline
+        String outputFrame = rejFrame.toByteString() + "\n";  // Append newline
         out.write(rejFrame.toByteString().getBytes());
         out.flush();
         System.out.println("Sent REJ for frame " + frameNum);

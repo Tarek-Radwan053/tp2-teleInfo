@@ -1,3 +1,9 @@
 Hello, Receiver!
 This is a test message.
 Go-Back-N Protocol Example.
+testing with 4 lines
+testing with 5 lines
+testing with 6 lines
+testing with 7 lines
+testing with 8 lines
+testing with 9 lines
