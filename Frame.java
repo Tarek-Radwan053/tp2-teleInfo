@@ -37,24 +37,24 @@ public class Frame {
         // CRC should be calculated on unstuffed data
         //System.out.println("data: "+sb.toString());
 
-        String allBinairy=BitStuffing.stringToBinary(sb.toString());
+        String allBinairy = BitStuffing.stringToBinary(sb.toString());
         //System.out.println("allBinairy: "+allBinairy);
-        String allBinairy1=allBinairy.substring(0,8);
+        String allBinairy1 = allBinairy.substring(0,8);
         //System.out.println("allBinairy1: "+allBinairy1);
-        String allBinairy2=allBinairy.substring(8);
+        String allBinairy2 = allBinairy.substring(8);
         //System.out.println("data: "+allBinairy2);
-        allBinairy=allBinairy1+numBinary+allBinairy2;
+        allBinairy = allBinairy1 + numBinary + allBinairy2;
         //System.out.println("allBinairy: "+allBinairy);
 
         String crc = CRC.calculateCRC(allBinairy);
         //System.out.println("crcofsender: "+crc);
 
-        crc=BitStuffing.stringToBinary(crc);
+        crc = BitStuffing.stringToBinary(crc);
         //System.out.println("crcofsenderBinairy: "+crc);
 
 
-        allBinairy=allBinairy+crc;
-        allBinairy=BitStuffing.applyBitStuffing(allBinairy);
+        allBinairy = allBinairy+crc;
+        allBinairy = BitStuffing.applyBitStuffing(allBinairy);
 
 
          return FLAG+allBinairy+FLAG;
