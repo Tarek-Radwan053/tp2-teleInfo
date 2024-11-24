@@ -9,11 +9,12 @@ import java.util.Scanner;
 public class Receiver {
 
     private int nbrFrames=0;
+    private   int endt=0;//end of communication
     private int expectedFrameNum = 0;  // Keeps track of the expected frame number
     private int windowSize = 4;  // Window size for Go-Back-N ARQ
 
     private ServerSocket serverSocket;
-    private List<Frame> receivedFrames = new ArrayList<>();
+
 
     public static void main(String[] args) throws IOException {
         if (args.length != 1) {
@@ -36,6 +37,9 @@ public class Receiver {
 
                 // Process the incoming data from the sender
                 processIncomingData(clientSocket);
+                if (endt==1) {
+                    break;
+                }
             } catch (IOException e) {
                 System.err.println("Error handling client connection: " + e.getMessage());
             }
@@ -69,16 +73,17 @@ public class Receiver {
                     System.out.println("Received End of Communication (F) frame.");
                     // Send acknowledgment for the end frame
                     System.out.println("Communication ended, closing connection.");
-                    sendAck(clientSocket, 0);
-                    return;  // Stop processing, end the communication
+                    //sendAck(clientSocket, 0);
+                    endt=1;
+                    break;  // Stop processing, end the communication
                 }
 
                 // Check if the frame is the expected one within the window
                 if (frame.getNum() == expectedFrameNum) {
                     // If the frame is correct, acknowledge it and increment the expected number
                     if (checkErrors(frame)) {
-                        sendAck(clientSocket, frame.getNum());
-                        expectedFrameNum = (expectedFrameNum + 1) % (windowSize + 1);  // Slide the window
+                        System.out.println("Received valid frame: " + frame.getNum());
+                        expectedFrameNum = (expectedFrameNum + 1) ;  // Slide the window
                     } else {
                         sendRejection(clientSocket, frame.getNum());
                     }
@@ -94,6 +99,11 @@ public class Receiver {
                     sendRejection(clientSocket, frame.getNum());
                 }
             }
+            sendAck(clientSocket, expectedFrameNum );  // Send cumulative ACK for the last frame
+            if (endt==1) {
+                break;
+            }
+
         }
 
         System.out.println("All frames received and processed.");
@@ -114,22 +124,47 @@ public class Receiver {
     public Frame identifyFrame(String line, int frameNbr) {
         String FLAG = "01111110";  // The flag that marks the start and end of each frame
 
-        // Calculate the start and end positions of the frame
-        int indexFlag = line.indexOf(FLAG, (frameNbr - 1) * FLAG.length());
-        //System.out.println("indexFlag: "+indexFlag);
-        //flag 2 may be incorrect
-        int indexFlag2 = line.indexOf(FLAG, indexFlag + FLAG.length());
-        //System.out.println("indexFlag2: "+indexFlag2);
-        //System.out.println("line: "+line);
-
-        // Ensure valid flag positions were found
-        if (indexFlag == -1 || indexFlag2 == -1) {
-            System.out.println("Error: Invalid flag positions.");
-            return null;  // If no valid flags found, return null (invalid frame)
+        // Find all the positions of the flags in the string
+        List<Integer> flagPositions = new ArrayList<>();
+        int index = 0;
+        while ((index = line.indexOf(FLAG, index)) != -1) {
+            flagPositions.add(index);
+            index += FLAG.length();
         }
 
-        // Extract the frame content (data and CRC part) between the flags
-        String frameContent = line.substring(indexFlag + FLAG.length(), indexFlag2);
+        // Ensure that there are at least two flags to form a frame
+        if (flagPositions.size() < 2) {
+            System.out.println("Error: Not enough flags to form a frame.");
+            return null;
+        }
+
+        // Now, we extract the frame based on the requested frame number
+        if (frameNbr < 1 || frameNbr >= flagPositions.size()) {
+            System.out.println("Error: Invalid frame number.");
+            return null;
+        }
+
+        // Start position of the frame (after the first flag)
+        int startIdx ;
+        // End position of the frame (before the next flag)
+        int endIdx;
+        if (frameNbr==1){
+            endIdx=flagPositions.get(frameNbr);
+            startIdx= 0+FLAG.length();
+        }
+         else {
+             endIdx = flagPositions.get(frameNbr*2-1) ;
+             if (frameNbr<3){
+                 startIdx = flagPositions.get(frameNbr) + FLAG.length();
+             }
+             else{
+                 startIdx = flagPositions.get(frameNbr+frameNbr-2) + FLAG.length();
+             }
+
+        }
+
+        // Extract the frame content between the flags
+        String frameContent = line.substring(startIdx, endIdx);
 
         // Step 1: Remove bit stuffing from the frame content
         String unstuffedContent = BitStuffing.removeBitStuffing(frameContent);
@@ -143,13 +178,10 @@ public class Receiver {
         // Step 3: Decode type (1 character = 8 bits)
         String typeBinary = unstuffedContent.substring(0, 8);
         String type = String.valueOf((char) Integer.parseInt(typeBinary, 2));
-        //System.out.println("type: "+type);
 
         // Step 4: Decode num (1 character = 8 bits)
         String numBinary = unstuffedContent.substring(8, 16);
-        //System.out.println("numBinary: "+numBinary);
         int num = Integer.parseInt(numBinary, 2);
-        //System.out.println("num: "+num);
 
         // Step 5: Extract data (all bits before the last 16 for CRC)
         String dataBinary = unstuffedContent.substring(16, unstuffedContent.length() - 32);
@@ -158,30 +190,18 @@ public class Receiver {
             String byteSegment = dataBinary.substring(i, Math.min(i + 8, dataBinary.length()));
             data.append((char) Integer.parseInt(byteSegment, 2));
         }
-        //System.out.println("data: "+data);
-
+        //System.out.println("data: "+data.toString());
 
         // Step 6: Extract and decode CRC (last 16 bits)
-        //passing the binairy code to calc crc
-        String crc=unstuffedContent.substring(0,unstuffedContent.length()-32);
-        crc = CRC.calculateCRC(crc);
-        //System.out.println("crcRecievr: "+crc);
-        crc=BitStuffing.stringToBinary(crc);
-        //System.out.println("crcRecievrBinairy: "+crc);
-
+        String crc = unstuffedContent.substring(0,unstuffedContent.length() - 32);
+        //System.out.println("unnstuffeddata: "+crc);
+        crc = CRC.calculateCRC(crc); // assuming CRC is calculated based on the received content
+        crc = BitStuffing.stringToBinary(crc);  // Convert CRC into binary if needed
+        //System.out.println("crc: "+crc);
 
         // Return the reconstructed Frame object
         return new Frame(type, num, data.toString(), crc);
-
-
-
-        // Return the reconstructed Frame object
-
     }
-
-
-
-
 
     private boolean checkErrors(Frame frame) {
         // Verify the CRC
@@ -195,10 +215,11 @@ public class Receiver {
                 return;
             }
 
-            Frame ackFrame = new Frame("A", frameNum, null, "");
+            //Frame ackFrame = new Frame("A", frameNum, null, "");
             OutputStream out = clientSocket.getOutputStream();
-            String outputFrame = ackFrame.toByteString();
-            outputFrame += "\n";  // Append newline
+            //String outputFrame = ackFrame.toByteString();
+            //outputFrame += "\n";  // Append newline
+            //out.write(outputFrame.getBytes());
 
             int retries = 3;
             int backoff = 100; // Milliseconds
@@ -228,6 +249,8 @@ public class Receiver {
     private void sendRejection(Socket clientSocket, int frameNum) throws IOException {
         Frame rejFrame = new Frame("R", frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
+        String outputFrame = rejFrame.toByteString();
+        outputFrame += "\n";  // Append newline
         out.write(rejFrame.toByteString().getBytes());
         out.flush();
         System.out.println("Sent REJ for frame " + frameNum);

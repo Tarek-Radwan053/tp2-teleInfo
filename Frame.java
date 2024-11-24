@@ -30,6 +30,7 @@ public class Frame {
         if (data!=null) {
             sb.append(data);
         }
+        //System.out.println("data: "+sb.toString());
 
 
 
@@ -55,9 +56,8 @@ public class Frame {
         allBinairy=allBinairy+crc;
         allBinairy=BitStuffing.applyBitStuffing(allBinairy);
 
-        return (FLAG + allBinairy + FLAG);
 
-
+         return FLAG+allBinairy+FLAG;
     }
 
 

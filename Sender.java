@@ -23,48 +23,63 @@ public class Sender {
         fileReader = new BufferedReader(new FileReader(fileName));
         String line=fileReader.readLine();
 
-        while ((line ) != null || base < nextSeqNum) {
+        while ((line) != null || base < nextSeqNum) {
             // Send frames while window is not full
             while (nextSeqNum < base + windowSize && line != null) {
                 String data = line;
                 Frame frame = new Frame("I", nextSeqNum, data, "");
                 String crc = CRC.calculateFrameCRC(frame);
                 frame.setCrc(crc);
-                sendFrame(frame);
-                sentFrames.add(frame);
-                nextSeqNum++;  // Increment nextSeqNum
                 line = fileReader.readLine();  // Read next line for data
+                if (line == null) {
+                    sendFrame(frame, true);  // Send the last frame
+                }
+                else {
+                    sendFrame(frame, false);  // Send the frame
+                }
+                nextSeqNum++;  // Increment nextSeqNum
             }
-
+            int biggestFrame=-1;
+            for (int i = nextSeqNum; i > base; i--) {
+                if (waitForAck(i)) {
+                    biggestFrame=i;
+                    break;
+                }
+            }
             // Wait for ACK for the frame at 'base'
-            if (!waitForAck(base)) {
+            if (biggestFrame==-1) {
                 System.out.println("Timeout! Resending frames starting from " + base);
-                resendFrames();  // Resend frames from base onwards
-            }
+                resendFrames(base);  // Resend frames from base onwards
+                while (!waitForAck(nextSeqNum)) {
+                    resendFrames(base);
+                }
 
-            // Move base forward after receiving an ACK for the frame at 'base'
-            if (isAckReceivedForFrame(base)) {
-                base++;  // Move base to the next unacknowledged frame
+            } else if (biggestFrame==nextSeqNum) {
+                base=biggestFrame;
             }
-            // should implent if not received the ack
+            else {
+                while (!waitForAck(nextSeqNum)) {
+                    resendFrames(biggestFrame+1);
+                }
+            }
         }
-
         // Send the final frame (End of transmission)
-        sendFrame(new Frame("F", nextSeqNum, null, ""));  // End of transmission frame
+        sendFrame(new Frame("F", nextSeqNum, null, ""),false);  // End of transmission frame
         System.out.println("Sent End of Communication (F) frame");
     }
 
-    private void sendFrame(Frame frame) throws IOException {
+    private void sendFrame(Frame frame,boolean isLast) throws IOException {
         OutputStream out = socket.getOutputStream();
         String outputFrame = frame.toByteString();
 
-        // Add a newline character at the end of the frame
-        outputFrame += "\n";  // Append newline
-
+        // Add newline for the last frame in a batch or "F" frame
+        if (frame.getType().equals("F")  || isLast || nextSeqNum +1>= base + windowSize) {
+            outputFrame += "\n";
+        }
         out.write(outputFrame.getBytes());
         out.flush();
 
-        System.out.println("Sent: " + outputFrame);  // Log the sent frame with newline
+        System.out.println("Sent: " + outputFrame);  // Log the frame
         sentFrames.add(frame);  // Track the sent frame
     }
 
@@ -72,87 +87,65 @@ public class Sender {
     // Wait for ACK with a timeout
     private boolean waitForAck(int frameNum) {
         try {
-            // Set a timeout for waiting for the ACK (e.g., 5 seconds)
-            socket.setSoTimeout(5000);  // 5 seconds timeout
+            socket.setSoTimeout(3000);  // 3 seconds timeout
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            for (int i = base; i < nextSeqNum; i++) {
-                System.out.println("waiting for ack for frame " + i);
-                String ack = reader.readLine();
+            String ack;
 
-
-                if (ack != null && ack.equals("ACK " + frameNum)) {
+            while ((ack = reader.readLine()) != null) {
+                // Continuously read incoming messages
+                if (ack != null && ack.contains("ACK " + frameNum)) {
                     System.out.println("Received ACK for frame " + frameNum);
                     return true;
+
+                    // Check if the received ACK matches the expected frameNum
+
                 } else {
                     System.err.println("Received unexpected response: " + ack);
-                    return false;
                 }
             }
         } catch (SocketTimeoutException e) {
             System.err.println("Timeout waiting for ACK for frame " + frameNum);
-            return false;
         } catch (IOException e) {
             System.err.println("Error receiving ACK: " + e.getMessage());
-            return false;
         }
-        return false;
+
+        return false;  // Return false if no valid ACK is received
     }
-
-
-
 
 
     // Resend frames starting from the 'base' frame
-    private void resendFrames() throws IOException {
-        for (int i = base; i < nextSeqNum; i++) {
+    private void resendFrames(int frameNbr) throws IOException {
+        for (int i = frameNbr; i < nextSeqNum; i++) {
             Frame frame = sentFrames.get(i);
-            sendFrame(frame);  // Resend the frame
-        }
-    }
-
-    private boolean isAckReceivedForFrame(int frameNum) {
-        // In reality, this would check the receiver's ACK and update the base
-        // Here we simulate that it is always true for simplicity.
-        return true;  // Placeholder to simulate ACK reception
-    }
-
-    private void startTimer() {
-        timer = new Timer();
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                System.out.println("Timeout! Resending frames...");
-                // Logic to resend frames
+            if (i == nextSeqNum - 1 || i == frameNbr) {
+                sendFrame(frame, true);  // Append newline if necessary
+            } else {
+                sendFrame(frame, false);  // Append newline if necessary
             }
-        }, 3000);  // 3-second timer
-    }
-
-    public void stopTimer() {
-        if (timer != null) {
-            timer.cancel();
         }
     }
 
-    // Logic to handle ACKs, resend frames, etc.
 
-    public static void main(String[] args) {
-        if (args.length != 4) {
-            System.out.println("Usage: java Sender <Host> <Port> <Filename> <GoBackN>");
-            return;
-        }
+        // Logic to handle ACKs, resend frames, etc.
 
-        String host = args[0];
-        int port = Integer.parseInt(args[1]);
-        String fileName = args[2];
-        int goBackN = Integer.parseInt(args[3]);
+        public static void main (String[]args){
+            if (args.length != 4) {
+                System.out.println("Usage: java Sender <Host> <Port> <Filename> <GoBackN>");
+                return;
+            }
 
-        try {
-            Sender sender = new Sender();
-            sender.connect(host, port);
-            sender.sendFrames(fileName);
+            String host = args[0];
+            int port = Integer.parseInt(args[1]);
+            String fileName = args[2];
+            int goBackN = Integer.parseInt(args[3]);
 
-        } catch (IOException e) {
-            e.printStackTrace();
+            try {
+                Sender sender = new Sender();
+                sender.connect(host, port);
+                sender.sendFrames(fileName);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
-}
