@@ -14,12 +14,30 @@ public class Sender {
     private Timer timer;
 
     public void connect(String host, int port) throws IOException {
-        socket = new Socket(host, port);
-        Frame connectFrame = new Frame("C", 0, "", "");
-        String crc = CRC.calculateFrameCRC(connectFrame);
-        connectFrame.setCrc(crc);
-        sendFrame(connectFrame, true);  // Send the connection request frame
-        System.out.println("Connected to receiver at " + host + ":" + port);
+        int retries = 5;  // Number of retries
+        int backoff = 3000;  // Initial backoff time in milliseconds
+
+        while (retries > 0) {
+            try {
+                socket = new Socket(host, port);
+                Frame connectFrame = new Frame("C", 0, "", "");
+                String crc = CRC.calculateFrameCRC(connectFrame);
+                connectFrame.setCrc(crc);
+                sendFrame(connectFrame, true);  // Send the connection request frame
+                System.out.println("Connected to receiver at " + host + ":" + port);
+                return;
+            } catch (IOException e) {
+                System.err.println("Failed to connect to receiver. Retrying in " + backoff / 1000 + " seconds...");
+                retries--;
+                try {
+                    Thread.sleep(backoff);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Connection attempt interrupted", ie);
+                }
+            }
+        }
+        throw new IOException("Failed to connect to receiver after multiple attempts.");
     }
 
     // Send frames from the file
