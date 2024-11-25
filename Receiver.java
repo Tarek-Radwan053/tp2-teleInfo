@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.sql.SQLOutput;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -34,6 +35,12 @@ public class Receiver {
             try (Socket clientSocket = serverSocket.accept()) {
                 System.out.println("Connection accepted from " + clientSocket.getInetAddress());
 
+                // Process the connection frame (type "C")
+                if (!processConnectionFrame(clientSocket)) {
+                    System.err.println("Invalid connection frame. Closing connection.");
+                    clientSocket.close();
+                    continue;
+                }
                 // Process the incoming data from the sender
                 processIncomingData(clientSocket);
                 if (endt==1) {
@@ -42,9 +49,25 @@ public class Receiver {
             } catch (IOException e) {
                 System.err.println("Error handling client connection: " + e.getMessage());
             }
-
         }
     }
+
+    private boolean processConnectionFrame(Socket clientSocket) throws IOException {
+        InputStream in = clientSocket.getInputStream();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        String line = reader.readLine();
+
+        if (line != null) {
+            Frame frame = Frame.identifyFrame(line, 1);
+            if (frame != null && "C".equals(frame.getType()) && CRC.validateCRC(frame)) {
+                System.out.println("Received valid connection frame.");
+                sendAck(clientSocket, frame.getNum());
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void processIncomingData(Socket clientSocket) throws IOException {
         InputStream in = clientSocket.getInputStream();
         Scanner scanner = new Scanner(in);  // Using Scanner to read input stream
@@ -54,7 +77,6 @@ public class Receiver {
         while (scanner.hasNext()) {
             String line = scanner.nextLine();  // Read each line
             System.out.println("line: " + line);
-
 
             // Count the number of frames based on flags
             nbrFrames = countFlags(line, "01111110") / 2;
@@ -70,10 +92,17 @@ public class Receiver {
                 // Check if the frame type is "F" (End of communication frame)
                 if ("F".equals(frame.getType())) {
                     System.out.println("Received End of Communication (F) frame.");
-                    // Send acknowledgment for the end frame
-                    System.out.println("Communication ended, closing connection.");
-                    endt=1;
-                    return;  // Stop processing, end the communication
+                    // Unstuff the frame data
+                    String unstuffedData = BitStuffing.removeBitStuffing(frame.getData());
+                    Frame unstuffedFrame = new Frame(frame.getType(), frame.getNum(), unstuffedData, frame.getCrc());
+                    //Validate the CRC
+                    if (CRC.validateCRC(unstuffedFrame)) {
+                        System.out.println("End of Communication frame is valid. Closing connection.");
+                        endt = 1;
+                        return;
+                    } else {
+                        System.err.println("CRC mismatch for End of Communication frame. Closing connection.");
+                    }
                 }
 
                 // Check if the frame is the expected one within the window

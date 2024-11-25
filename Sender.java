@@ -15,6 +15,10 @@ public class Sender {
 
     public void connect(String host, int port) throws IOException {
         socket = new Socket(host, port);
+        Frame connectFrame = new Frame("C", 0, "", "");
+        String crc = CRC.calculateFrameCRC(connectFrame);
+        connectFrame.setCrc(crc);
+        sendFrame(connectFrame, true);  // Send the connection request frame
         System.out.println("Connected to receiver at " + host + ":" + port);
     }
 
@@ -64,7 +68,10 @@ public class Sender {
             }
         }
         // Send the final frame (End of transmission)
-        sendFrame(new Frame("F", nextSeqNum, null, ""),false);  // End of transmission frame
+        Frame endFrame = new Frame("F", nextSeqNum, null, "");
+        String endCrc = CRC.calculateFrameCRC(endFrame);
+        endFrame.setCrc(endCrc);
+        sendFrame(endFrame, false);  // End of transmission frame
         System.out.println("Sent End of Communication (F) frame");
     }
 
