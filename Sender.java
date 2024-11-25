@@ -89,19 +89,34 @@ public class Sender {
         try {
             socket.setSoTimeout(3000);  // 3 seconds timeout
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String ack;
 
-            while ((ack = reader.readLine()) != null) {
-                // Continuously read incoming messages
-                if (ack != null && ack.contains("ACK " + frameNum)) {
-                    System.out.println("Received ACK for frame " + frameNum);
-                    return true;
+            String ack = reader.readLine();
+            Frame ackFrame = Frame.identifyFrame(ack, 1);  // Assuming the frame number is 1 for simplicity
+            //System.out.println("CRC before unstuff: " + ackFrame.getCrc() + " for frame " + ackFrame.getType());
 
-                    // Check if the received ACK matches the expected frameNum
+            if (ackFrame != null) {
+                //Remove bit stuffing
+                String unstuffedData = BitStuffing.removeBitStuffing(ackFrame.getData());
+                //System.out.println("Unstuffed data: " + unstuffedData + " for frame " + ackFrame.getType());
+                Frame unstuffedFrame = new Frame(ackFrame.getType(), ackFrame.getNum(), unstuffedData, ackFrame.getCrc());
+                if (CRC.validateCRC(unstuffedFrame)) {
+                    //System.out.println("Received frame: " + unstuffedFrame.getNum());
+                    //System.out.println("frameNum: " + frameNum);
 
+                    if ("A".equals(unstuffedFrame.getType())) {
+                        System.out.println("Received ACK for frame " + frameNum);
+                        //System.out.println("CRC: " + unstuffedFrame.getCrc());
+                        return true;
+                    } else if ("R".equals(unstuffedFrame.getType())) {
+                        System.err.println("Received REJ for frame " + frameNum);
+                    } else {
+                        System.err.println("Received unexpected frame type: " + unstuffedFrame.getType());
+                    }
                 } else {
-                    System.err.println("Received unexpected response: " + ack);
+                    System.err.println("CRC mismatch for frame " + frameNum);
                 }
+            } else {
+                System.err.println("Failed to identify frame.");
             }
         } catch (SocketTimeoutException e) {
             System.err.println("Timeout waiting for ACK for frame " + frameNum);
