@@ -28,13 +28,14 @@ public class CRC {
     public static boolean validateCRC(Frame frame) {
 
         String numBinary =String.format("%8s", Integer.toBinaryString(frame.getNum())).replace(' ', '0');
-        String b=BitStuffing.stringToBinary(frame.getType())+numBinary+BitStuffing.stringToBinary(frame.getData());
-        //System.out.println("b: "+b);
-        b=calculateCRC(b);
-        b=BitStuffing.stringToBinary(b);
+        String b = BitStuffing.stringToBinary(frame.getType()) + numBinary + BitStuffing.stringToBinary(frame.getData());
+        b = calculateCRC(b);
+        b = BitStuffing.stringToBinary(b);
 
+        System.out.println("Calculated CRC: " + b);
+        System.out.println("Frame CRC: " + frame.getCrc());
 
-        boolean a= Objects.equals(b, frame.getCrc());
+        boolean a = Objects.equals(b, frame.getCrc());
         return a;
     }
 
