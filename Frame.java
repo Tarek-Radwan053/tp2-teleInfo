@@ -154,4 +154,8 @@ public class Frame {
     public void setCrc(String crc) {
         this.crc = crc;
     }
+
+    public void setData(String data) {
+        this.data = data;
+    }
 }

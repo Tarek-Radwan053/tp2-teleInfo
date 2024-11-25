@@ -93,7 +93,7 @@ public class Sender {
         System.out.println("Sent End of Communication (F) frame");
     }
 
-    private void sendFrame(Frame frame,boolean isLast) throws IOException {
+    protected void sendFrame(Frame frame, boolean isLast) throws IOException {
         OutputStream out = socket.getOutputStream();
         String outputFrame = frame.toByteString();
 
