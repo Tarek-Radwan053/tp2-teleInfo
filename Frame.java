@@ -3,11 +3,11 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Frame {
-    private static final String FLAG = "01111110"; // Flag to mark the beginning and end of a frame
-    private String type;  // Frame type ('I' for information, 'A' for ACK, etc.)
-    private int num;    // Frame number (sequence number)
-    private String data;  // Data carried in the frame
-    private String crc;   // CRC checksum for the frame
+    private static final String FLAG = "01111110"; // Indique le début et la fin d'une trame
+    private String type;  // Type de trame ('I' pour information, 'A' pour ACK, etc.)
+    private int num;    // Numéro de séquence de la trame
+    private String data;  // Données contenues dans la trame
+    private String crc;   // Somme de contrôle CRC pour vérifier l'intégrité
 
     public Frame(String type, int num, String data, String crc) {
         this.type = type;
@@ -16,10 +16,17 @@ public class Frame {
         this.crc = crc;
     }
 
+    /**
+     * Identifie et extrait une trame spécifique dans une chaîne binaire en fonction de son numéro.
+     *
+     * @param line      La chaîne binaire contenant plusieurs trames.
+     * @param frameNbr  Le numéro de la trame à extraire.
+     * @return          Une instance de Frame si la trame est valide, sinon null.
+     */
     public static Frame identifyFrame(String line, int frameNbr) {
-        String FLAG = "01111110";  // The flag that marks the start and end of each frame
+        String FLAG = "01111110";  // Marqueur de début et de fin des trames
 
-        // Find all the positions of the flags in the string
+        // Recherche les positions des flags dans la chaîne
         List<Integer> flagPositions = new ArrayList<>();
         int index = 0;
         while ((index = line.indexOf(FLAG, index)) != -1) {
@@ -27,123 +34,105 @@ public class Frame {
             index += FLAG.length();
         }
 
-        // Ensure that there are at least two flags to form a frame
+        // Vérifie s'il y a suffisamment de flags pour former une trame
         if (flagPositions.size() < 2) {
-            System.out.println("Error: Not enough flags to form a frame.");
+            System.out.println("Erreur : Pas assez de flags pour former une trame.");
             return null;
         }
 
-        // Now, we extract the frame based on the requested frame number
+        // Vérifie si le numéro de la trame demandé est valide
         if (frameNbr < 1 || frameNbr >= flagPositions.size()) {
-            System.out.println("Error: Invalid frame number.");
+            System.out.println("Erreur : Numéro de trame invalide.");
             return null;
         }
 
-        // Start position of the frame (after the first flag)
-        int startIdx ;
-        // End position of the frame (before the next flag)
+        // Détermine les indices de début et de fin de la trame dans la chaîne
+        int startIdx;
         int endIdx;
-        if (frameNbr==1){
-            endIdx=flagPositions.get(frameNbr);
-            startIdx= 0+FLAG.length();
-        }
-        else {
-            endIdx = flagPositions.get(frameNbr*2-1) ;
-            if (frameNbr<3){
+        if (frameNbr == 1) {
+            endIdx = flagPositions.get(frameNbr);
+            startIdx = 0 + FLAG.length();
+        } else {
+            endIdx = flagPositions.get(frameNbr * 2 - 1);
+            if (frameNbr < 3) {
                 startIdx = flagPositions.get(frameNbr) + FLAG.length();
+            } else {
+                startIdx = flagPositions.get(frameNbr + frameNbr - 2) + FLAG.length();
             }
-            else{
-                startIdx = flagPositions.get(frameNbr+frameNbr-2) + FLAG.length();
-            }
-
         }
 
-        // Extract the frame content between the flags
+        // Extrait le contenu de la trame
         String frameContent = line.substring(startIdx, endIdx);
 
-        // Step 1: Remove bit stuffing from the frame content
+        // Étape 1 : Retire le bourrage de bits (bit stuffing) du contenu
         String unstuffedContent = BitStuffing.removeBitStuffing(frameContent);
 
-        // Step 2: Ensure the unstuffed content is valid for processing
-        if (unstuffedContent.length() < 32) { // At least 1 char for type, 1 for num, and 4 for CRC
-            System.out.println("Error: Frame content too small after unstuffing.");
+        // Vérifie que le contenu désencapsulé est suffisant
+        if (unstuffedContent.length() < 32) { // Minimum requis : type, numéro et CRC
+            System.out.println("Erreur : Contenu de la trame trop court après désencapsulation.");
             return null;
         }
 
-        // Step 3: Decode type (1 character = 8 bits)
+        // Étape 3 : Décoder le type de la trame (8 bits)
         String typeBinary = unstuffedContent.substring(0, 8);
         String type = String.valueOf((char) Integer.parseInt(typeBinary, 2));
 
-        // Step 4: Decode num (1 character = 8 bits)
+        // Étape 4 : Décoder le numéro de la trame (8 bits)
         String numBinary = unstuffedContent.substring(8, 16);
         int num = Integer.parseInt(numBinary, 2);
 
-        // Step 5: Extract data (all bits before the last 16 for CRC)
+        // Étape 5 : Extraire les données (avant les derniers 16 bits pour le CRC)
         String dataBinary = unstuffedContent.substring(16, unstuffedContent.length() - 32);
         StringBuilder data = new StringBuilder();
         for (int i = 0; i < dataBinary.length(); i += 8) {
             String byteSegment = dataBinary.substring(i, Math.min(i + 8, dataBinary.length()));
             data.append((char) Integer.parseInt(byteSegment, 2));
         }
-        //System.out.println("data: "+data.toString());
 
-        // Step 6: Extract and decode CRC (last 16 bits)
-        String crc = unstuffedContent.substring(0,unstuffedContent.length() - 32);
-        //System.out.println("unnstuffeddata: "+crc);
-        crc = CRC.calculateCRC(crc); // assuming CRC is calculated based on the received content
-        crc = BitStuffing.stringToBinary(crc);  // Convert CRC into binary if needed
-        //System.out.println("crc: "+crc);
+        // Étape 6 : Calculer et valider le CRC
+        String crc = unstuffedContent.substring(0, unstuffedContent.length() - 32);
+        crc = CRC.calculateCRC(crc);
+        crc = BitStuffing.stringToBinary(crc);
 
-        // Return the reconstructed Frame object
+        // Retourne une nouvelle instance de Frame avec les données extraites
         return new Frame(type, num, data.toString(), crc);
     }
 
-    // Convert the frame to a byte string representation
-    //not sure if i should add bit stuffing individually or all together
+    /**
+     * Convertit la trame en une représentation binaire avec les flags et le bourrage de bits.
+     *
+     * @return La représentation binaire de la trame, prête à être envoyée.
+     */
     public String toByteString() {
         StringBuilder sb = new StringBuilder();
         sb.append(type);
-        //transform from int to binairy code on 8 bits
-        String numBinary="00000000";
-        if (type=="I" || type=="A" || type=="F") {
-             numBinary =String.format("%8s", Integer.toBinaryString(num)).replace(' ', '0');
-        }
-        //System.out.println("numBinary: "+numBinary);
 
-        // Apply bit stuffing to the data if it's not null binary
-        if (data!=null) {
+        // Transforme le numéro en binaire sur 8 bits
+        String numBinary = "00000000";
+        if (type == "I" || type == "A" || type == "F") {
+            numBinary = String.format("%8s", Integer.toBinaryString(num)).replace(' ', '0');
+        }
+
+        // Ajoute les données (si présentes)
+        if (data != null) {
             sb.append(data);
         }
-        //System.out.println("data: "+sb.toString());
 
+        // Convertit tout en binaire
+        String allBinary = BitStuffing.stringToBinary(sb.toString());
+        allBinary = allBinary.substring(0, 8) + numBinary + allBinary.substring(8);
 
-
-        // CRC should be calculated on unstuffed data
-        //System.out.println("data: "+sb.toString());
-
-        String allBinairy = BitStuffing.stringToBinary(sb.toString());
-        //System.out.println("allBinairy: "+allBinairy);
-        String allBinairy1 = allBinairy.substring(0,8);
-        //System.out.println("allBinairy1: "+allBinairy1);
-        String allBinairy2 = allBinairy.substring(8);
-        //System.out.println("data: "+allBinairy2);
-        allBinairy = allBinairy1 + numBinary + allBinairy2;
-        //System.out.println("allBinairy: "+allBinairy);
-
-        String crc = CRC.calculateCRC(allBinairy);
-        //System.out.println("crcofsender: "+crc);
-
+        // Calcule et ajoute le CRC
+        String crc = CRC.calculateCRC(allBinary);
         crc = BitStuffing.stringToBinary(crc);
-        //System.out.println("crcofsenderBinairy: "+crc);
+        allBinary = allBinary + crc;
 
+        // Applique le bourrage de bits
+        allBinary = BitStuffing.applyBitStuffing(allBinary);
 
-        allBinairy = allBinairy+crc;
-        allBinairy = BitStuffing.applyBitStuffing(allBinairy);
-
-
-         return FLAG+allBinairy+FLAG;
+        // Ajoute les flags
+        return FLAG + allBinary + FLAG;
     }
-
 
     // Getters
     public String getType() { return type; }
@@ -151,6 +140,7 @@ public class Frame {
     public String getData() { return data; }
     public String getCrc() { return crc; }
 
+    // Setters
     public void setCrc(String crc) {
         this.crc = crc;
     }

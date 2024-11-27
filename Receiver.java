@@ -2,45 +2,53 @@ import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 
-
 public class Receiver {
 
-    private int nbrFrames=0;
-    private   int endt=0;//end of communication
-    private int expectedFrameNum = 0;  // Keeps track of the expected frame number
-    private int windowSize = 1;  // Window size for Go-Back-N ARQ
+    private int nbrFrames = 0; // Nombre de trames détectées dans une communication
+    private int endt = 0; // Indicateur de fin de communication
+    private int expectedFrameNum = 0; // Numéro de trame attendu (Go-Back-N ARQ)
+    private int windowSize = 1; // Taille de la fenêtre (Go-Back-N ARQ)
 
-    private ServerSocket serverSocket;
-
+    private ServerSocket serverSocket; // Socket serveur pour accepter les connexions des expéditeurs
 
     public static void main(String[] args) throws IOException {
+        // Vérifie que le port est passé en argument
         if (args.length != 1) {
             System.out.println("Usage: java Receiver <port>");
             System.exit(1);
         }
-        int port = Integer.parseInt(args[0]);  // Port number passed as command-line argument
+        int port = Integer.parseInt(args[0]); // Récupère le port à utiliser
         Receiver receiver = new Receiver();
-        receiver.start(port);
-
+        receiver.start(port); // Démarre le serveur sur le port donné
     }
 
+    /**
+     * Démarre le serveur et gère les connexions entrantes.
+     *
+     * @param port Le port sur lequel le serveur écoute
+     * @throws IOException En cas d'erreur de communication
+     */
     public void start(int port) throws IOException {
         serverSocket = new ServerSocket(port);
-        serverSocket.setSoTimeout(60000);
+        serverSocket.setSoTimeout(60000); // Timeout après 60 secondes sans connexion
         System.out.println("Receiver listening on port " + port);
+
         while (true) {
-            try (Socket clientSocket = serverSocket.accept()) {
+            try (Socket clientSocket = serverSocket.accept()) { // Accepte une connexion client
                 System.out.println("Connection accepted from " + clientSocket.getInetAddress());
 
-                // Process the connection frame (type "C")
+                // Traitement de la trame de connexion (type "C")
                 if (!processConnectionFrame(clientSocket)) {
                     System.err.println("Invalid connection frame. Closing connection.");
                     clientSocket.close();
-                    continue;
+                    continue; // Passe à la prochaine connexion
                 }
-                // Process the incoming data from the sender
+
+                // Traite les données envoyées par l'expéditeur
                 processIncomingData(clientSocket);
-                if (endt==1) {
+
+                // Si fin de communication, arrête le serveur
+                if (endt == 1) {
                     break;
                 }
             } catch (IOException e) {
@@ -49,50 +57,61 @@ public class Receiver {
         }
     }
 
+    /**
+     * Traite la trame de connexion initiale envoyée par l'expéditeur.
+     *
+     * @param clientSocket Le socket client
+     * @return true si la trame est valide, false sinon
+     */
     private boolean processConnectionFrame(Socket clientSocket) throws IOException {
         InputStream in = clientSocket.getInputStream();
         BufferedReader reader = new BufferedReader(new InputStreamReader(in));
         String line = reader.readLine();
 
         if (line != null) {
-            Frame frame = Frame.identifyFrame(line, 1);
+            Frame frame = Frame.identifyFrame(line, 1); // Identifie la trame reçue
             if (frame != null && "C".equals(frame.getType()) && CRC.validateCRC(frame)) {
                 System.out.println("Received valid connection frame.");
-                sendAck(clientSocket, frame.getNum());
+                sendAck(clientSocket, frame.getNum()); // Envoie un ACK pour la trame
                 return true;
             }
         }
         return false;
     }
 
+    /**
+     * Traite les données envoyées par l'expéditeur.
+     *
+     * @param clientSocket Le socket client
+     */
     private void processIncomingData(Socket clientSocket) throws IOException {
         InputStream in = clientSocket.getInputStream();
-        Scanner scanner = new Scanner(in);  // Using Scanner to read input stream
+        Scanner scanner = new Scanner(in); // Scanner pour lire les données
         System.out.println("Receiving data from sender...");
 
-        // Loop through the incoming data
+        // Traite chaque ligne reçue
         while (scanner.hasNext()) {
-            String line = scanner.nextLine();  // Read each line
+            String line = scanner.nextLine(); // Lit une ligne de données
             System.out.println("line: " + line);
 
-            // Count the number of frames based on flags
+            // Compte les trames détectées dans la ligne
             nbrFrames = countFlags(line, "01111110") / 2;
             System.out.println("Detected " + nbrFrames + " frames.");
 
-            // Process each frame within the window size
+            // Traite chaque trame détectée
             for (int frameNbr = 1; frameNbr <= nbrFrames; frameNbr++) {
-                Frame frame = Frame.identifyFrame(line, frameNbr);
+                Frame frame = Frame.identifyFrame(line, frameNbr); // Identifie la trame
                 if (frame == null) {
                     System.err.println("Frame " + frameNbr + " is invalid. Skipping...");
                     continue;
                 }
-                // Check if the frame type is "F" (End of communication frame)
+
+                // Vérifie si c'est une trame de fin de communication (type "F")
                 if ("F".equals(frame.getType())) {
                     System.out.println("Received End of Communication (F) frame.");
-                    // Unstuff the frame data
                     String unstuffedData = BitStuffing.removeBitStuffing(frame.getData());
                     Frame unstuffedFrame = new Frame(frame.getType(), frame.getNum(), unstuffedData, frame.getCrc());
-                    //Validate the CRC
+
                     if (CRC.validateCRC(unstuffedFrame)) {
                         System.out.println("End of Communication frame is valid. Closing connection.");
                         endt = 1;
@@ -102,53 +121,55 @@ public class Receiver {
                     }
                 }
 
-                // Check if the frame is the expected one within the window
+                // Vérifie si la trame est la bonne
                 if (frame.getNum() == expectedFrameNum) {
-                    // If the frame is correct, acknowledge it and increment the expected number
                     if (checkErrors(frame)) {
                         System.out.println("Received valid frame: " + frame.getNum());
-                        expectedFrameNum = (expectedFrameNum + 1) ;  // Slide the window
-                    } else {
-                        sendRejection(clientSocket, frame.getNum());
-                    }
-                } else if (frame.getNum() > expectedFrameNum && frame.getNum() < expectedFrameNum + windowSize) {
-                    // If the frame is within the window, accept and acknowledge it
-                    if (checkErrors(frame)) {
-                        sendAck(clientSocket, frame.getNum());
+                        expectedFrameNum = (expectedFrameNum + 1); // Avance la fenêtre
                     } else {
                         sendRejection(clientSocket, frame.getNum());
                     }
                 } else {
-                    // Reject out-of-order frames
-                    sendRejection(clientSocket, frame.getNum());
+                    sendRejection(clientSocket, frame.getNum()); // Rejette les trames hors de la fenêtre
                 }
             }
-            sendAck(clientSocket, expectedFrameNum );  // Send cumulative ACK for the last frame
-            if (endt==1) {
+
+            sendAck(clientSocket, expectedFrameNum); // Envoie un ACK cumulatif
+            if (endt == 1) {
                 break;
             }
-
         }
 
         System.out.println("All frames received and processed.");
     }
 
+    /**
+     * Compte les occurrences d'un flag dans une ligne.
+     *
+     * @param line La ligne à analyser
+     * @param flag Le flag à rechercher
+     * @return Le nombre de flags trouvés
+     */
     public int countFlags(String line, String flag) {
         int count = 0;
         int index = 0;
 
-        // Continue à chercher le flag jusqu'à ce qu'il n'y en ait plus
+        // Cherche le flag jusqu'à la fin de la ligne
         while ((index = line.indexOf(flag, index)) != -1) {
-            count++;  // Trouvé un flag, on incrémente le compteur
-            index += flag.length();  // On déplace l'index après le flag trouvé
+            count++;
+            index += flag.length();
         }
 
         return count;
     }
 
-
+    /**
+     * Vérifie les erreurs d'une trame via le CRC.
+     *
+     * @param frame La trame à vérifier
+     * @return true si la trame est valide, false sinon
+     */
     private boolean checkErrors(Frame frame) {
-        // Verify the CRC
         boolean isValid = CRC.validateCRC(frame);
         if (!isValid) {
             System.err.println("CRC mismatch for frame: " + frame.getNum());
@@ -156,6 +177,12 @@ public class Receiver {
         return isValid;
     }
 
+    /**
+     * Envoie un ACK (accusé de réception) pour une trame donnée.
+     *
+     * @param clientSocket Le socket client
+     * @param frameNum Le numéro de trame à confirmer
+     */
     private void sendAck(Socket clientSocket, int frameNum) {
         try {
             if (clientSocket.isClosed() || clientSocket.isOutputShutdown()) {
@@ -165,46 +192,30 @@ public class Receiver {
 
             Frame ackFrame = new Frame("A", frameNum, "", "");
             OutputStream out = clientSocket.getOutputStream();
-            String ackCrc = CRC.calculateFrameCRC(ackFrame);
-            //System.out.println("ackCrc: " + ackCrc);
-            ackFrame.setCrc(ackCrc);
-            String outputFrame = ackFrame.toByteString() + "\n";  // Append newline;
+            ackFrame.setCrc(CRC.calculateFrameCRC(ackFrame));
+            String outputFrame = ackFrame.toByteString() + "\n"; // Prépare la trame
             out.write(outputFrame.getBytes());
             out.flush();
+            frameNum--; // Décrémente le numéro de trame pour l'affichage
             System.out.println("Sent ACK for frame " + frameNum);
-
-            /*int retries = 3;
-            int backoff = 100; // Milliseconds
-
-            while (retries > 0) {
-                try {
-                    out.write(("ACK " + frameNum + "\n").getBytes());
-                    out.flush();
-                    System.out.println("ACK " + frameNum);
-                    return;
-                } catch (IOException e) {
-                    retries--;
-                    System.err.println("Retrying to send ACK... Retries left: " + retries);
-                    Thread.sleep(backoff);
-                    backoff *= 2; // Exponential backoff
-                }
-            }
-
-            if (retries == 0) {
-                System.err.println("Failed to send ACK for frame " + frameNum + " after multiple attempts.");
-            }*/
         } catch (IOException e) {
             System.err.println("Error sending ACK for frame " + frameNum + ": " + e.getMessage());
         }
     }
 
+    /**
+     * Envoie un rejet (REJ) pour une trame donnée.
+     *
+     * @param clientSocket Le socket client
+     * @param frameNum Le numéro de trame rejetée
+     * @throws IOException En cas d'erreur d'écriture
+     */
     private void sendRejection(Socket clientSocket, int frameNum) throws IOException {
         Frame rejFrame = new Frame("R", frameNum, null, "");
         OutputStream out = clientSocket.getOutputStream();
 
-        String rejCrc = CRC.calculateFrameCRC(rejFrame);
-        rejFrame.setCrc(rejCrc);
-        String outputFrame = rejFrame.toByteString() + "\n";  // Append newline;
+        rejFrame.setCrc(CRC.calculateFrameCRC(rejFrame));
+        String outputFrame = rejFrame.toByteString() + "\n";
         out.write(outputFrame.getBytes());
         out.flush();
         System.out.println("Sent REJ for frame " + frameNum);

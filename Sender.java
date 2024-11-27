@@ -3,134 +3,144 @@ import java.net.*;
 import java.util.*;
 import java.net.Socket;
 
-
 public class Sender {
-    private Socket socket;
-    private BufferedReader fileReader;
-    private List<Frame> sentFrames = new ArrayList<>();
-    private final int windowSize = 4;  // Window size for Go-Back-N
-    private int base = 0;  // Base of the window (first unacknowledged frame)
-    private int nextSeqNum = 0;  // Next frame to send
-    private Timer timer;
+    private Socket socket; // Socket pour établir la connexion avec le récepteur
+    private BufferedReader fileReader; // Lecture des données du fichier à envoyer
+    private List<Frame> sentFrames = new ArrayList<>(); // Liste des trames envoyées
+    private final int windowSize = 4; // Taille de la fenêtre pour le protocole Go-Back-N
+    private int base = 0; // Base de la fenêtre (première trame non acquittée)
+    private int nextSeqNum = 0; // Numéro de la prochaine trame à envoyer
+    private Timer timer; // Timer pour gérer les délais d'attente des ACKs (non utilisé ici mais prévu)
 
+    /**
+     * Connecte l'émetteur au récepteur via un socket.
+     *
+     * @param host Adresse IP ou nom d'hôte du récepteur
+     * @param port Port du récepteur
+     * @throws IOException En cas d'erreur de connexion
+     */
     public void connect(String host, int port) throws IOException {
-        int retries = 5;  // Number of retries
-        int backoff = 3000;  // Initial backoff time in milliseconds
+        int retries = 5; // Nombre de tentatives de connexion
+        int backoff = 3000; // Temps d'attente en millisecondes entre les tentatives
 
         while (retries > 0) {
             try {
-                socket = new Socket(host, port);
-                Frame connectFrame = new Frame("C", 0, "", "");
-                String crc = CRC.calculateFrameCRC(connectFrame);
+                socket = new Socket(host, port); // Tente d'établir une connexion
+                Frame connectFrame = new Frame("C", 0, "", ""); // Trame de demande de connexion
+                String crc = CRC.calculateFrameCRC(connectFrame); // Calcul du CRC pour la trame
                 connectFrame.setCrc(crc);
-                sendFrame(connectFrame, true);  // Send the connection request frame
+                sendFrame(connectFrame, true); // Envoie la trame de connexion
                 System.out.println("Connected to receiver at " + host + ":" + port);
-                return;
+                return; // Connexion réussie
             } catch (IOException e) {
                 System.err.println("Failed to connect to receiver. Retrying in " + backoff / 1000 + " seconds...");
-                retries--;
+                retries--; // Décrémente le nombre de tentatives restantes
                 try {
-                    Thread.sleep(backoff);
+                    Thread.sleep(backoff); // Attente avant la prochaine tentative
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     throw new IOException("Connection attempt interrupted", ie);
                 }
             }
         }
-        throw new IOException("Failed to connect to receiver after multiple attempts.");
+        throw new IOException("Failed to connect to receiver after multiple attempts."); // Échec après toutes les tentatives
     }
 
-    // Send frames from the file
+    /**
+     * Envoie les trames à partir d'un fichier texte en utilisant le protocole Go-Back-N.
+     *
+     * @param fileName Nom du fichier à lire
+     * @throws IOException En cas d'erreur d'entrée/sortie
+     */
     public void sendFrames(String fileName) throws IOException {
         fileReader = new BufferedReader(new FileReader(fileName));
-        String line=fileReader.readLine();
+        String line = fileReader.readLine();
 
-        while ((line) != null || base < nextSeqNum) {
-            // Send frames while window is not full
+        while ((line) != null || base < nextSeqNum) { // Continue tant qu'il y a des données ou des trames non acquittées
+            // Envoie les trames tant que la fenêtre n'est pas pleine
             while (nextSeqNum < base + windowSize && line != null) {
                 String data = line;
-                Frame frame = new Frame("I", nextSeqNum, data, "");
-                String crc = CRC.calculateFrameCRC(frame);
+                Frame frame = new Frame("I", nextSeqNum, data, ""); // Crée une trame avec les données
+                String crc = CRC.calculateFrameCRC(frame); // Calcul du CRC
                 frame.setCrc(crc);
-                line = fileReader.readLine();  // Read next line for data
+                line = fileReader.readLine(); // Lit la ligne suivante
                 if (line == null) {
-                    sendFrame(frame, true);  // Send the last frame
+                    sendFrame(frame, true); // Envoie la dernière trame
+                } else {
+                    sendFrame(frame, false); // Envoie une trame normale
                 }
-                else {
-                    sendFrame(frame, false);  // Send the frame
-                }
-                nextSeqNum++;  // Increment nextSeqNum
+                nextSeqNum++; // Incrémente le numéro de trame
             }
-            int biggestFrame=-1;
+
+            int biggestFrame = -1; // Indique la plus grande trame acquittée
             for (int i = nextSeqNum; i > base; i--) {
-                if (waitForAck(i)) {
-                    biggestFrame=i;
+                if (waitForAck(i)) { // Attente d'un ACK
+                    biggestFrame = i;
                     break;
                 }
             }
-            // Wait for ACK for the frame at 'base'
-            if (biggestFrame==-1) {
-                System.out.println("Timeout! Resending frames starting from " + base);
-                resendFrames(base);  // Resend frames from base onwards
-                while (!waitForAck(nextSeqNum)) {
-                    resendFrames(base);
-                }
 
-            } else if (biggestFrame==nextSeqNum) {
-                base=biggestFrame;
-            }
-            else {
+            if (biggestFrame == -1) { // Timeout pour toutes les trames
+                System.out.println("Timeout! Resending frames starting from " + base);
+                resendFrames(base); // Réenvoie les trames à partir de la base
+            } else if (biggestFrame == nextSeqNum) { // Toutes les trames dans la fenêtre sont acquittées
+                base = biggestFrame;
+            } else { // Réenvoie les trames partiellement acquittées
                 while (!waitForAck(nextSeqNum)) {
-                    resendFrames(biggestFrame+1);
+                    resendFrames(biggestFrame + 1);
                 }
             }
         }
-        // Send the final frame (End of transmission)
+
+        // Envoie la trame de fin de communication
         Frame endFrame = new Frame("F", nextSeqNum, null, "");
         String endCrc = CRC.calculateFrameCRC(endFrame);
         endFrame.setCrc(endCrc);
-        sendFrame(endFrame, false);  // End of transmission frame
+        sendFrame(endFrame, false);
         System.out.println("Sent End of Communication (F) frame");
     }
 
+    /**
+     * Envoie une trame au récepteur.
+     *
+     * @param frame  La trame à envoyer
+     * @param isLast Indique si c'est la dernière trame d'un lot
+     * @throws IOException En cas d'erreur d'envoi
+     */
     protected void sendFrame(Frame frame, boolean isLast) throws IOException {
         OutputStream out = socket.getOutputStream();
         String outputFrame = frame.toByteString();
 
-        // Add newline for the last frame in a batch or "F" frame
-        if (frame.getType().equals("F")  || isLast || nextSeqNum +1>= base + windowSize) {
-            outputFrame += "\n";
+        if (frame.getType().equals("F") || isLast || nextSeqNum + 1 >= base + windowSize) {
+            outputFrame += "\n"; // Ajoute une fin de ligne si nécessaire
         }
         out.write(outputFrame.getBytes());
         out.flush();
 
-        System.out.println("Sent: " + frame.getData());  // Log the frame
-        sentFrames.add(frame);  // Track the sent frame
+        System.out.println("Sent: " + frame.getData()); // Log de la trame envoyée
+        sentFrames.add(frame); // Ajoute la trame à la liste des trames envoyées
     }
 
-
-    // Wait for ACK with a timeout
+    /**
+     * Attend un ACK pour une trame avec un délai d'attente (timeout).
+     *
+     * @param frameNum Numéro de la trame à attendre
+     * @return true si l'ACK est reçu, false sinon
+     */
     private boolean waitForAck(int frameNum) {
         try {
-            socket.setSoTimeout(3000);  // 3 seconds timeout
+            socket.setSoTimeout(3000); // Timeout de 3 secondes
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
             String ack = reader.readLine();
-            Frame ackFrame = Frame.identifyFrame(ack, 1);  // Assuming the frame number is 1 for simplicity
-            //System.out.println("CRC before unstuff: " + ackFrame.getCrc() + " for frame " + ackFrame.getType());
+            Frame ackFrame = Frame.identifyFrame(ack, 1); // Décodage de la trame ACK
 
             if (ackFrame != null) {
-                //Remove bit stuffing
-                String unstuffedData = BitStuffing.removeBitStuffing(ackFrame.getData());
-                //System.out.println("Unstuffed data: " + unstuffedData + " for frame " + ackFrame.getType());
+                String unstuffedData = BitStuffing.removeBitStuffing(ackFrame.getData()); // Retire le bit stuffing
                 Frame unstuffedFrame = new Frame(ackFrame.getType(), ackFrame.getNum(), unstuffedData, ackFrame.getCrc());
-                if (CRC.validateCRC(unstuffedFrame)) {
-                    //System.out.println("Received frame: " + unstuffedFrame.getNum());
-                    //System.out.println("frameNum: " + frameNum);
-
+                frameNum--;
+                if (CRC.validateCRC(unstuffedFrame)) { // Vérifie le CRC
                     if ("A".equals(unstuffedFrame.getType())) {
                         System.out.println("Received ACK for frame " + frameNum);
-                        //System.out.println("CRC: " + unstuffedFrame.getCrc());
                         return true;
                     } else if ("R".equals(unstuffedFrame.getType())) {
                         System.err.println("Received REJ for frame " + frameNum);
@@ -140,52 +150,48 @@ public class Sender {
                 } else {
                     System.err.println("CRC mismatch for frame " + frameNum);
                 }
-            } else {
-                System.err.println("Failed to identify frame.");
             }
         } catch (SocketTimeoutException e) {
             System.err.println("Timeout waiting for ACK for frame " + frameNum);
         } catch (IOException e) {
             System.err.println("Error receiving ACK: " + e.getMessage());
         }
-
-        return false;  // Return false if no valid ACK is received
+        return false; // Retourne false si aucun ACK valide n'est reçu
     }
 
-
-    // Resend frames starting from the 'base' frame
+    /**
+     * Réenvoie les trames à partir d'un numéro de trame donné.
+     *
+     * @param frameNbr Numéro de la première trame à réenvoyer
+     * @throws IOException En cas d'erreur d'envoi
+     */
     private void resendFrames(int frameNbr) throws IOException {
         for (int i = frameNbr; i < nextSeqNum; i++) {
             Frame frame = sentFrames.get(i);
-            if (i == nextSeqNum - 1 || i == frameNbr) {
-                sendFrame(frame, true);  // Append newline if necessary
-            } else {
-                sendFrame(frame, false);  // Append newline if necessary
-            }
+            sendFrame(frame, i == nextSeqNum - 1); // Réenvoie la trame
         }
     }
 
+    /**
+     * Point d'entrée du programme. Initialise le Sender et commence l'envoi des trames.
+     */
+    public static void main(String[] args) {
+        if (args.length != 4) {
+            System.out.println("Usage: java Sender <Host> <Port> <Filename> <GoBackN>");
+            return;
+        }
 
-        // Logic to handle ACKs, resend frames, etc.
+        String host = args[0];
+        int port = Integer.parseInt(args[1]);
+        String fileName = args[2];
+        int goBackN = Integer.parseInt(args[3]);
 
-        public static void main (String[]args){
-            if (args.length != 4) {
-                System.out.println("Usage: java Sender <Host> <Port> <Filename> <GoBackN>");
-                return;
-            }
-
-            String host = args[0];
-            int port = Integer.parseInt(args[1]);
-            String fileName = args[2];
-            int goBackN = Integer.parseInt(args[3]);
-
-            try {
-                Sender sender = new Sender();
-                sender.connect(host, port);
-                sender.sendFrames(fileName);
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        try {
+            Sender sender = new Sender();
+            sender.connect(host, port);
+            sender.sendFrames(fileName);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
+}
