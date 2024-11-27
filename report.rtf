@@ -1,0 +1,140 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2818
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 ### Classes et M\'e9thodes\
+\
+#### Classe `Receiver`\
+- **Description**: Cette classe g\'e8re la r\'e9ception des trames envoy\'e9es par le `Sender`.\
+\
+- **M\'e9thodes**:\
+  - **`start(int port)`**:\
+    - **Param\'e8tres**: `port` (entier)\
+    - **Fonction**: D\'e9marre le serveur sur le port sp\'e9cifi\'e9 et accepte les connexions entrantes.\
+    - **Output**: Aucun\
+\
+  - **`processConnectionFrame(Socket clientSocket)`**:\
+    - **Param\'e8tres**: `clientSocket` (objet `Socket`)\
+    - **Fonction**: Traite la trame de connexion initiale envoy\'e9e par le `Sender`.\
+    - **Output**: `boolean` (indique si la trame de connexion est valide)\
+\
+  - **`processIncomingData(Socket clientSocket)`**:\
+    - **Param\'e8tres**: `clientSocket` (objet `Socket`)\
+    - **Fonction**: Traite les donn\'e9es entrantes envoy\'e9es par le `Sender`.\
+    - **Output**: Aucun\
+\
+  - **`countFlags(String line, String flag)`**:\
+    - **Param\'e8tres**: `line` (cha\'eene de caract\'e8res), `flag` (cha\'eene de caract\'e8res)\
+    - **Fonction**: Compte le nombre de drapeaux (flags) dans une ligne donn\'e9e.\
+    - **Output**: `int` (nombre de drapeaux trouv\'e9s)\
+\
+  - **`checkErrors(Frame frame)`**:\
+    - **Param\'e8tres**: `frame` (objet `Frame`)\
+    - **Fonction**: V\'e9rifie les erreurs dans une trame en validant son CRC.\
+    - **Output**: `boolean` (indique si la trame est valide)\
+\
+  - **`sendAck(Socket clientSocket, int frameNum)`**:\
+    - **Param\'e8tres**: `clientSocket` (objet `Socket`), `frameNum` (entier)\
+    - **Fonction**: Envoie une trame d'accus\'e9 de r\'e9ception (ACK) pour une trame donn\'e9e.\
+    - **Output**: Aucun\
+\
+  - **`sendRejection(Socket clientSocket, int frameNum)`**:\
+    - **Param\'e8tres**: `clientSocket` (objet `Socket`), `frameNum` (entier)\
+    - **Fonction**: Envoie une trame de rejet (REJ) pour une trame donn\'e9e.\
+    - **Output**: Aucun\
+\
+#### Classe `Frame`\
+- **Description**: Cette classe repr\'e9sente une trame de donn\'e9es avec ses attributs et m\'e9thodes associ\'e9es.\
+\
+- **M\'e9thodes**:\
+  - **`Frame(String type, int num, String data, String crc)`**:\
+    - **Param\'e8tres**: `type` (cha\'eene de caract\'e8res), `num` (entier), `data` (cha\'eene de caract\'e8res), `crc` (cha\'eene de caract\'e8res)\
+    - **Fonction**: Constructeur de la classe `Frame`.\
+    - **Output**: Aucun\
+\
+  - **`identifyFrame(String line, int frameNbr)`**:\
+    - **Param\'e8tres**: `line` (cha\'eene de caract\'e8res), `frameNbr` (entier)\
+    - **Fonction**: Identifie et extrait une trame d'une ligne donn\'e9e.\
+    - **Output**: `Frame` (objet `Frame`)\
+\
+  - **`toByteString()`**:\
+    - **Param\'e8tres**: Aucun\
+    - **Fonction**: Convertit la trame en une repr\'e9sentation binaire sous forme de cha\'eene de caract\'e8res.\
+    - **Output**: `String` (repr\'e9sentation binaire de la trame)\
+\
+  - **Getters et Setters**:\
+    - **Param\'e8tres**: Aucun ou les attributs correspondants\
+    - **Fonction**: Acc\'e9der et modifier les attributs de la trame.\
+    - **Output**: Les valeurs des attributs ou aucun\
+\
+#### Classe `Sender`\
+- **Description**: Cette classe g\'e8re l'envoi des trames au `Receiver`.\
+\
+- **M\'e9thodes**:\
+  - **`connect(String host, int port)`**:\
+    - **Param\'e8tres**: `host` (cha\'eene de caract\'e8res), `port` (entier)\
+    - **Fonction**: \'c9tablit une connexion avec le `Receiver`.\
+    - **Output**: Aucun\
+\
+  - **`sendFrames(String fileName)`**:\
+    - **Param\'e8tres**: `fileName` (cha\'eene de caract\'e8res)\
+    - **Fonction**: Envoie les trames lues \'e0 partir d'un fichier au `Receiver`.\
+    - **Output**: Aucun\
+\
+  - **`sendFrame(Frame frame, boolean isLast)`**:\
+    - **Param\'e8tres**: `frame` (objet `Frame`), `isLast` (bool\'e9en)\
+    - **Fonction**: Envoie une trame sp\'e9cifique au `Receiver`.\
+    - **Output**: Aucun\
+\
+  - **`waitForAck(int frameNum)`**:\
+    - **Param\'e8tres**: `frameNum` (entier)\
+    - **Fonction**: Attend un accus\'e9 de r\'e9ception (ACK) pour une trame donn\'e9e.\
+    - **Output**: `boolean` (indique si l'ACK a \'e9t\'e9 re\'e7u)\
+\
+  - **`resendFrames(int frameNbr)`**:\
+    - **Param\'e8tres**: `frameNbr` (entier)\
+    - **Fonction**: R\'e9envoie les trames \'e0 partir d'un num\'e9ro de trame donn\'e9.\
+    - **Output**: Aucun\
+\
+\
+\
+#### Classe `BitStuffing`\
+- **Description**: Cette classe g\'e8re l'application et la suppression du bit stuffing.\
+\
+- **M\'e9thodes**:\
+  - **`applyBitStuffing(String data)`**:\
+    - **Param\'e8tres**: `data` (cha\'eene de caract\'e8res)\
+    - **Fonction**: Applique le bit stuffing \'e0 une cha\'eene de bits.\
+    - **Output**: `String` (cha\'eene de bits avec bit stuffing)\
+\
+  - **`removeBitStuffing(String stuffedData)`**:\
+    - **Param\'e8tres**: `stuffedData` (cha\'eene de caract\'e8res)\
+    - **Fonction**: Supprime le bit stuffing d'une cha\'eene de bits.\
+    - **Output**: `String` (cha\'eene de bits sans bit stuffing)\
+\
+  - **`stringToBinary(String input)`**:\
+    - **Param\'e8tres**: `input` (cha\'eene de caract\'e8res)\
+    - **Fonction**: Convertit une cha\'eene de caract\'e8res en repr\'e9sentation binaire.\
+    - **Output**: `String` (repr\'e9sentation binaire de la cha\'eene)\
+\
+#### Classe `CRC`\
+- **Description**: Cette classe g\'e8re le calcul et la validation des checksums CRC.\
+\
+- **M\'e9thodes**:\
+  - **`calculateCRC(String input)`**:\
+    - **Param\'e8tres**: `input` (cha\'eene de caract\'e8res)\
+    - **Fonction**: Calcule le checksum CRC-CCITT pour une cha\'eene de caract\'e8res donn\'e9e.\
+    - **Output**: `String` (checksum CRC sous forme de cha\'eene hexad\'e9cimale)\
+\
+  - **`validateCRC(Frame frame)`**:\
+    - **Param\'e8tres**: `frame` (objet `Frame`)\
+    - **Fonction**: Valide le checksum CRC d'une trame.\
+    - **Output**: `boolean` (indique si le CRC est valide)\
+\
+  - **`calculateFrameCRC(Frame frame)`**:\
+    - **Param\'e8tres**: `frame` (objet `Frame`)\
+    - **Fonction**: Calcule le checksum CRC pour une trame enti\'e8re.\
+    - **Output**: `String` (checksum CRC sous forme de cha\'eene hexad\'e9cimale)}
