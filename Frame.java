@@ -134,6 +134,18 @@ public class Frame {
         return FLAG + allBinary + FLAG;
     }
 
+    /**
+     * Takes a binary string and extracts the frame's type, sequence number, data, and CRC to create a new Frame object.
+     */
+    public static Frame fromByteString(String byteString) {
+        // Assuming the byteString format is: type + num + data + crc
+        String type = byteString.substring(0, 1);
+        int num = Integer.parseInt(byteString.substring(1, 2));
+        String data = byteString.substring(2, byteString.length() - 4);
+        String crc = byteString.substring(byteString.length() - 4);
+        return new Frame(type, num, data, crc);
+    }
+
     // Getters
     public String getType() { return type; }
     public int getNum() { return num; }
