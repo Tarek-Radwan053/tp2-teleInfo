@@ -30,7 +30,12 @@ public class TestSuite {
         testFrameWithCorruptedCRC();
         System.out.println("Testing multiple frames with sequence numbers...");
         testFrameSequenceHandling();
+        System.out.println("Testing Acknowledgement Frame...");
+        testAcknowledgementFrame();
+        System.out.println("Testing Send Frame and Wait...");
+        testSendFrameAndWait();
         System.out.println("All tests passed!");
+
     }
 
     private static void testBitStuffing() {
@@ -160,5 +165,25 @@ public class TestSuite {
             assert frame.getNum() == newFrame.getNum() : "Failed to handle sequence number: " + i;
             assert frame.getData().equals(newFrame.getData()) : "Failed to handle data in sequence number: " + i;
         }
+    }
+
+    private static void testAcknowledgementFrame() {
+        Frame ackFrame = new Frame("A", 1, "", CRC.calculateCRC(""));
+        String byteString = ackFrame.toByteString();
+        Frame newFrame = Frame.fromByteString(byteString);
+        assert ackFrame.getType().equals(newFrame.getType()) : "Failed to serialize/deserialize ACK frame type";
+        assert ackFrame.getNum() == newFrame.getNum() : "Failed to serialize/deserialize ACK frame num";
+        assert ackFrame.getData().equals(newFrame.getData()) : "Failed to serialize/deserialize ACK frame data";
+        assert ackFrame.getCrc().equals(newFrame.getCrc()) : "Failed to serialize/deserialize ACK frame crc";
+    }
+
+    private static void testSendFrameAndWait() {
+        Frame sendFrame = new Frame("I", 2, "TestData", CRC.calculateCRC("TestData"));
+        String byteString = sendFrame.toByteString();
+        Frame newFrame = Frame.fromByteString(byteString);
+        assert sendFrame.getType().equals(newFrame.getType()) : "Failed to serialize/deserialize send frame type";
+        assert sendFrame.getNum() == newFrame.getNum() : "Failed to serialize/deserialize send frame num";
+        assert sendFrame.getData().equals(newFrame.getData()) : "Failed to serialize/deserialize send frame data";
+        assert sendFrame.getCrc().equals(newFrame.getCrc()) : "Failed to serialize/deserialize send frame crc";
     }
 }
