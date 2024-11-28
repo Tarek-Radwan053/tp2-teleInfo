@@ -53,6 +53,8 @@ public class Receiver {
                 }
             } catch (IOException e) {
                 System.err.println("Error handling client connection: " + e.getMessage());
+                serverSocket.close();
+                break;
             }
         }
     }
