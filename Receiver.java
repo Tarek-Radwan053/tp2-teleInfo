@@ -121,6 +121,20 @@ public class Receiver {
                     }
                 }
 
+                // Vérifie si c'est une trame de P-bit
+                if ("P".equals(frame.getType())) {
+                    System.out.println("Received P-bit frame.");
+                    String unstuffedData = BitStuffing.removeBitStuffing(frame.getData());
+                    Frame unstuffedFrame = new Frame(frame.getType(), frame.getNum(), unstuffedData, frame.getCrc());
+
+                    if (CRC.validateCRC(unstuffedFrame)) {
+                        System.out.println("P-bit frame is valid.");
+                        // Handle the P-bit frame as needed
+                    } else {
+                        System.err.println("CRC mismatch for P-bit frame.");
+                    }
+                }
+
                 // Vérifie si la trame est la bonne
                 if (frame.getNum() == expectedFrameNum) {
                     if (checkErrors(frame)) {

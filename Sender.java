@@ -101,6 +101,21 @@ public class Sender {
     }
 
     /**
+     * Envoie une trame de type P avec calcul du CRC avant le bit stuffing.
+     *
+     * @param data Les données à envoyer dans la trame P
+     * @throws IOException En cas d'erreur d'envoi
+     */
+    public void sendPFrame(String data) throws IOException {
+        Frame pFrame = new Frame("P", nextSeqNum, data, "");
+        String crc = CRC.calculateFrameCRC(pFrame);
+        pFrame.setCrc(crc);
+        String stuffedData = BitStuffing.applyBitStuffing(pFrame.toByteString());
+        sendFrame(new Frame("P", nextSeqNum, stuffedData, crc), false);
+        System.out.println("Sent P frame with data: " + data);
+    }
+
+    /**
      * Envoie une trame au récepteur.
      *
      * @param frame  La trame à envoyer
