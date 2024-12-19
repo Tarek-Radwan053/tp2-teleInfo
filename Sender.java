@@ -122,7 +122,14 @@ public class Sender {
      * @param isLast Indique si c'est la dernière trame d'un lot
      * @throws IOException En cas d'erreur d'envoi
      */
+
+    //private int frame2drop = 2;
     protected void sendFrame(Frame frame, boolean isLast) throws IOException {
+        /*if (frame.getNum() == frame2drop) {
+            System.out.println("Dropping frame " + frame2drop);
+            return;
+        }*/
+
         OutputStream out = socket.getOutputStream();
         String outputFrame = frame.toByteString();
 
@@ -134,6 +141,8 @@ public class Sender {
 
         System.out.println("Sent: " + frame.getData()); // Log de la trame envoyée
         sentFrames.add(frame); // Ajoute la trame à la liste des trames envoyées
+
+        System.out.println("CRC: " + frame.getCrc());
     }
 
     /**

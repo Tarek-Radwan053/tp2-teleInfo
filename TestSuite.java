@@ -153,7 +153,6 @@ public class TestSuite {
             boolean isValid = CRC.validateCRC(frame);
             assert !isValid : "Failed to handle corrupted CRC";
         } catch (IllegalArgumentException e) {
-            // Expected exception for invalid frame format
         }
     }
 
